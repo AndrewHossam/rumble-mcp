@@ -69,8 +69,8 @@ export class RumbleClient {
             expert_tool_table: true,
         };
 
-        const response = await this.fetch<{ data: FundamentalCall[] }>('/fundamental-calls', queryParams);
-        return response.data || [];
+        const response = await this.fetch<{ objects: FundamentalCall[], pagination?: { total: number } }>('/fundamental-calls', queryParams);
+        return response.objects || [];
     }
 
     async getTechnicalCalls(params: ListParams = {}): Promise<TechnicalCall[]> {
@@ -82,8 +82,8 @@ export class RumbleClient {
             expert_tool_table: true,
         };
 
-        const response = await this.fetch<{ data: TechnicalCall[] }>('/technical-calls', queryParams);
-        return response.data || [];
+        const response = await this.fetch<{ objects: TechnicalCall[], pagination?: { total: number } }>('/technical-calls', queryParams);
+        return response.objects || [];
     }
 
     async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
@@ -100,12 +100,12 @@ export class RumbleClient {
     }
 
     async getLatestReleases(market?: string): Promise<any[]> {
-        const response = await this.fetch<{ data: any[] }>('/latest-releases', {
+        const response = await this.fetch<{ objects: any[] }>('/latest-releases', {
             fundamental_content_only: true,
             market: market || this.defaultMarket,
             expert_tool_table: true,
         });
-        return response.data || [];
+        return response.objects || [];
     }
 
     async getAssetList(listId: string): Promise<AssetList> {
