@@ -210,18 +210,6 @@ npm test
 
 ---
 
-## Publish to Registries (Optional)
-
-To make this MCP discoverable, you can submit it to:
-
-1. **[Smithery.ai](https://smithery.ai)**
-   - Create an account → Submit your npm package or GitHub repo
-
-2. **[Glama.ai](https://glama.ai/mcp/servers)**
-   - Create an account → Add MCP Server → Provide npm package name
-
----
-
 ## License
 
 MIT © 2026
