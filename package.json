@@ -1,0 +1,41 @@
+{
+  "name": "rumble-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for TheRumble.app investment research data",
+  "main": "dist/index.js",
+  "bin": {
+    "rumble-mcp": "./dist/index.js"
+  },
+  "type": "module",
+  "keywords": [
+    "mcp",
+    "rumble",
+    "investment",
+    "egypt",
+    "egx",
+    "stocks"
+  ],
+  "author": "",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "extract-token": "tsx src/extract-token.ts",
+    "test": "tsx src/test-integration.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.3.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
