@@ -1,6 +1,6 @@
 {
   "name": "rumble-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for TheRumble.app investment research data",
   "main": "dist/index.js",
   "bin": {
