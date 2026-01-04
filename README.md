@@ -40,7 +40,7 @@ npm install -g rumble-mcp
 
 ### Option 3: From Source
 ```bash
-git clone https://github.com/yourusername/rumble-mcp.git
+git clone https://github.com/AndrewHossam/rumble-mcp.git
 cd rumble-mcp
 npm install && npm run build
 npm link  # Makes 'rumble-mcp' globally available
@@ -159,16 +159,8 @@ Most MCP-compatible clients follow a similar pattern:
 | `get_latest_releases` | Get latest content releases |
 | `get_technical_calls` | List active technical trading calls |
 | `get_technical_track_record` | Get overall technical track record |
-| `get_asset_list` | Get a curated portfolio by ID or alias |
+| `get_asset_list` | Get a curated portfolio. Use aliases: `rfp-egx` (Fundamental Portfolio), `bottom-fisher` (Undervalued Stocks), `rtp-egx` (Technical Portfolio) |
 | `list_known_portfolios` | List all known portfolio aliases |
-
-### Portfolio Aliases
-
-| Alias | Portfolio |
-|-------|-----------|
-| `rfp-egx` | Rumble Fundamental Portfolio (long-term picks) |
-| `bottom-fisher` | Undervalued stocks with high upside potential |
-| `rtp-egx` | Rumble Technical Portfolio (short-term trades) |
 
 ---
 
@@ -197,7 +189,7 @@ Once configured, ask your AI assistant:
 
 ```bash
 # Clone and setup
-git clone https://github.com/yourusername/rumble-mcp.git
+git clone https://github.com/AndrewHossam/rumble-mcp.git
 cd rumble-mcp
 npm install
 
@@ -213,17 +205,21 @@ npm test
 
 ---
 
-## Registries
+## Publish to Registries (Optional)
 
-This MCP server can be discovered on:
-- [Smithery.ai](https://smithery.ai) - MCP server registry
-- [Glama.ai](https://glama.ai/mcp/servers) - MCP marketplace
+To make this MCP discoverable, you can submit it to:
+
+1. **[Smithery.ai](https://smithery.ai)**
+   - Create an account → Submit your npm package or GitHub repo
+
+2. **[Glama.ai](https://glama.ai/mcp/servers)**
+   - Create an account → Add MCP Server → Provide npm package name
 
 ---
 
 ## License
 
-MIT © 2024
+MIT © 2026
 
 ---
 
