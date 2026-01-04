@@ -2,13 +2,28 @@ import type { ListParams, FundamentalCall, TechnicalCall, TrackRecord, AssetList
 
 const BASE_URL = 'https://therumble.app/api';
 
+// Generate a random ID similar to what Rumble uses
+function generateId(length: number = 21): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
 export class RumbleClient {
     private token: string;
     private defaultMarket: string;
+    private deviceId: string;
+    private sessionId: string;
 
-    constructor(token: string, defaultMarket: string = 'EGY') {
+    constructor(token: string, defaultMarket: string = 'EGY', deviceId?: string, sessionId?: string) {
         this.token = token;
         this.defaultMarket = defaultMarket;
+        // Use provided IDs or generate new ones
+        this.deviceId = deviceId || process.env.RUMBLE_DEVICE_ID || generateId();
+        this.sessionId = sessionId || process.env.RUMBLE_SESSION_ID || generateId();
     }
 
     private async fetch<T>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<T> {
@@ -31,6 +46,9 @@ export class RumbleClient {
                 'Authorization': `Bearer ${this.token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'x-rumble-device-id': this.deviceId,
+                'x-rumble-session-id': this.sessionId,
+                'x-rumble-request-id': generateId(),
             },
         });
 
@@ -96,6 +114,9 @@ export class RumbleClient {
             headers: {
                 'Authorization': `Bearer ${this.token}`,
                 'Accept': 'application/json',
+                'x-rumble-device-id': this.deviceId,
+                'x-rumble-session-id': this.sessionId,
+                'x-rumble-request-id': generateId(),
             },
         });
 
