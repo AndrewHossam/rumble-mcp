@@ -159,7 +159,10 @@ Most MCP-compatible clients follow a similar pattern:
 | `get_latest_releases` | Get latest content releases |
 | `get_technical_calls` | List active technical trading calls |
 | `get_technical_track_record` | Get overall technical track record |
-| `get_asset_list` | Get a curated portfolio. Use aliases: `rfp-egx` (Fundamental Portfolio), `bottom-fisher` (Undervalued Stocks), `rtp-egx` (Technical Portfolio) |
+| `get_rfp_portfolio` | Get Rumble Fundamental Portfolio (RFP) - Long-term picks |
+| `get_bottom_fisher_portfolio` | Get Bottom Fisher Portfolio - Undervalued stocks |
+| `get_rtp_portfolio` | Get Rumble Technical Portfolio (RTP) - Short-term trades |
+| `get_asset_list` | Get any portfolio by custom ID |
 | `list_known_portfolios` | List all known portfolio aliases |
 
 ---

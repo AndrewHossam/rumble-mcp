@@ -10,14 +10,22 @@ export const KNOWN_LISTS = {
 
 export const assetToolSchemas = {
     get_asset_list: {
-        description: `Get a curated portfolio/asset list from TheRumble. Known lists: 
-- "rfp-egx": Rumble Fundamental Portfolio (long-term picks)
-- "bottom-fisher": Undervalued stocks
-- "rtp-egx": Rumble Technical Portfolio (trading picks)
-Or provide a custom list ID.`,
+        description: `Get a curated portfolio/asset list from TheRumble by ID or alias.`,
         inputSchema: z.object({
             listId: z.string().describe('Asset list ID or alias (rfp-egx, bottom-fisher, rtp-egx)'),
         }),
+    },
+    get_rfp_portfolio: {
+        description: 'Get the Rumble Fundamental Portfolio (RFP) - Long-term investment picks based on fundamental analysis for the Egyptian market.',
+        inputSchema: z.object({}),
+    },
+    get_bottom_fisher_portfolio: {
+        description: 'Get the Bottom Fisher Portfolio - Undervalued stocks with high upside potential.',
+        inputSchema: z.object({}),
+    },
+    get_rtp_portfolio: {
+        description: 'Get the Rumble Technical Portfolio (RTP) - Short to medium-term trading picks based on technical analysis.',
+        inputSchema: z.object({}),
     },
     list_known_portfolios: {
         description: 'List all known curated portfolio IDs and their descriptions.',
@@ -36,6 +44,18 @@ export async function handleAssetTool(
             // Resolve alias to ID if provided
             const listId = KNOWN_LISTS[params.listId as keyof typeof KNOWN_LISTS] || params.listId;
             return await client.getAssetList(listId);
+        }
+
+        case 'get_rfp_portfolio': {
+            return await client.getAssetList(KNOWN_LISTS['rfp-egx']);
+        }
+
+        case 'get_bottom_fisher_portfolio': {
+            return await client.getAssetList(KNOWN_LISTS['bottom-fisher']);
+        }
+
+        case 'get_rtp_portfolio': {
+            return await client.getAssetList(KNOWN_LISTS['rtp-egx']);
         }
 
         case 'list_known_portfolios': {
@@ -67,3 +87,4 @@ export async function handleAssetTool(
             throw new Error(`Unknown asset tool: ${toolName}`);
     }
 }
+
