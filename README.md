@@ -3,6 +3,8 @@
 [![npm version](https://img.shields.io/npm/v/rumble-mcp.svg)](https://www.npmjs.com/package/rumble-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> ⚠️ **Disclaimer**: This tool requires a valid subscription to [TheRumble.app](https://therumble.app). It is intended for **personal use only**. Any misuse of this tool is not the responsibility of the developer. By using this tool, you agree to comply with TheRumble's terms of service.
+
 An MCP (Model Context Protocol) server that provides AI assistants with access to [TheRumble.app](https://therumble.app) investment research data for the Egyptian stock market (EGX).
 
 ## Quick Install
