@@ -123,7 +123,8 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
       "command": "npx",
       "args": ["rumble-mcp"],
       "env": {
-        "RUMBLE_FIREBASE_TOKEN": "your_token_here"
+        "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
+        "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
       }
     }
   }
@@ -136,9 +137,10 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 claude mcp add rumble -- npx rumble-mcp
 ```
 
-Then set your token:
+Then set your tokens:
 ```bash
-export RUMBLE_FIREBASE_TOKEN="your_token_here"
+export RUMBLE_FIREBASE_TOKEN="your_firebase_token"
+export RUMBLE_REFRESH_TOKEN="your_refresh_token"
 ```
 
 ### 🤖 Other AI Clients (Windsurf, Continue, etc.)
@@ -151,7 +153,8 @@ Most MCP-compatible clients follow a similar pattern:
   "command": "npx",
   "args": ["rumble-mcp"],
   "env": {
-    "RUMBLE_FIREBASE_TOKEN": "your_token_here"
+    "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
+    "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
   }
 }
 ```
@@ -160,38 +163,25 @@ Most MCP-compatible clients follow a similar pattern:
 
 ## Available Tools
 
-### Call Discovery
-| Tool | Description |
-|------|-------------|
-| `get_fundamental_calls` | List active fundamental investment calls with summaries |
-| `get_technical_calls` | List active technical trading calls with entry/target/stop-loss |
+| Tool | Category | Description |
+|------|----------|-------------|
+| `get_fundamental_calls` | Discovery | List active fundamental investment calls |
+| `get_technical_calls` | Discovery | List active technical trading calls |
+| `get_call_details` | Details | Get full details for any call (fundamental/technical) by ID |
+| `get_fundamental_track_record`| Insights | Overall fundamental track record (win rate, alpha) |
+| `get_technical_track_record` | Insights | Overall technical track record |
+| `get_latest_releases` | Insights | Latest content releases |
+| `get_rfp_portfolio` | Portfolios | Rumble Fundamental Portfolio (long-term picks) |
+| `get_bottom_fisher_portfolio` | Portfolios | Bottom Fisher Portfolio (undervalued stocks) |
+| `get_rsp_portfolio` | Portfolios | Rumble Shariah Portfolio (Shariah-compliant) |
+| `list_known_portfolios` | Portfolios | List all known portfolio aliases |
 
-### Call Details (Unified)
-| Tool | Description |
-|------|-------------|
-| `get_call_details` | Get full details for any call (fundamental or technical) by ID. Supports optional `sections` filter. |
-
-**`get_call_details` Parameters:**
-- `callId` (required): The call ID from list results
-- `type` (optional): `"fundamental"` or `"technical"` - auto-detected if not provided
-- `sections` (optional): Array of sections to include: `["story", "performance", "updates", "news"]`
-
-**Example:**
-```json
-{"callId": "7CRN9unbNwyniJPAlLYaVR", "sections": ["performance", "updates"]}
-```
-
-### Track Record & Portfolios
-| Tool | Description |
-|------|-------------|
-| `get_fundamental_track_record` | Overall fundamental track record (win rate, alpha) |
-| `get_technical_track_record` | Overall technical track record |
-| `get_latest_releases` | Latest content releases |
-| `get_rfp_portfolio` | Rumble Fundamental Portfolio (long-term picks) |
-| `get_bottom_fisher_portfolio` | Bottom Fisher Portfolio (undervalued stocks) |
-| `get_rsp_portfolio` | Rumble Shariah Portfolio (Shariah-compliant stocks) |
-| `get_asset_list` | Get any portfolio by custom ID |
-| `list_known_portfolios` | List all known portfolio aliases |
+### `get_call_details` Usage
+*   **Parameters**: `callId` (required), `type` (optional: fundamental/technical), `sections` (optional: `["story", "performance", "updates", "news"]`)
+*   **Example**:
+    ```json
+    {"callId": "call_id_here", "sections": ["performance", "updates"]}
+    ```
 
 ---
 
@@ -201,9 +191,9 @@ Once configured, ask your AI assistant:
 
 > "What are the current active fundamental calls on Rumble?"
 
-> "Get full details for call 7CRN9unbNwyniJPAlLYaVR"
+> "Get full details for call_id_here"
 
-> "Show me just the performance and updates for that ENGC call"
+> "Show me just the performance and updates for that symbol"
 
 > "Get the Bottom Fisher portfolio"
 
@@ -213,7 +203,8 @@ Once configured, ask your AI assistant:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `RUMBLE_FIREBASE_TOKEN` | ✅ Yes | Your Firebase auth token from therumble.app |
+| `RUMBLE_FIREBASE_TOKEN` | ✅ Yes | Your Firebase ID token from therumble.app |
+| `RUMBLE_REFRESH_TOKEN` | ✅ Yes | Your Firebase refresh token for auto-renewal |
 | `RUMBLE_MARKET` | No | Market code (default: `EGY` for Egypt) |
 
 ---
@@ -244,9 +235,6 @@ If you find this MCP useful, consider supporting the project:
 
 - **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International / Private)
 - **[Support via TipTea](https://www.tiptea.app/#/u/andrewhossam)** (Egypt Local: InstaPay / Vodafone Cash)
-- **[Buy me a coffee](https://ko-fi.com/rumblemcp)** (via PayPal)
-
-All contributions go towards maintaining the data extraction logic and server costs.
 
 ## License
 
