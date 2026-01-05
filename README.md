@@ -227,6 +227,13 @@ npm run build
 npm test
 ```
 
+### Developer Workflow & Safety
+This project includes automated safety checks to prevent breaking changes:
+*   **Pre-commit Hooks**: Automatically builds the project before every commit to catch syntax and type errors.
+*   **CI/CD**: GitHub Actions automatically verifies builds and types on every push and pull request.
+*   **Publish Safety**: The project is locked to automatically run a fresh build before `npm publish` to ensure users always get the latest code.
+
+
 ---
 
 ## Support & Sponsorship
