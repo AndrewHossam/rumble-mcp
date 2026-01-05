@@ -1,0 +1,5 @@
+# GitHub Funding Configuration
+
+# These are the supported payment platforms
+open_collective: rumble-mcp
+custom: ["https://www.tiptea.app/#/u/andrewhossam"]
