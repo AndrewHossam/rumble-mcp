@@ -1,4 +1,5 @@
 import type { ListParams, FundamentalCall, TechnicalCall, TrackRecord, AssetList } from '../types/index.js';
+import { TokenManager } from './token-refresh.js';
 
 const BASE_URL = 'https://therumble.app/api';
 
@@ -13,20 +14,26 @@ function generateId(length: number = 21): string {
 }
 
 export class RumbleClient {
-    private token: string;
+    private tokenManager: TokenManager;
     private defaultMarket: string;
     private deviceId: string;
     private sessionId: string;
 
-    constructor(token: string, defaultMarket: string = 'EGY', deviceId?: string, sessionId?: string) {
-        this.token = token;
+    constructor(
+        token: string,
+        defaultMarket: string = 'EGY',
+        deviceId?: string,
+        sessionId?: string,
+        refreshToken?: string
+    ) {
+        this.tokenManager = new TokenManager(token, refreshToken);
         this.defaultMarket = defaultMarket;
         // Use provided IDs or generate new ones
         this.deviceId = deviceId || process.env.RUMBLE_DEVICE_ID || generateId();
         this.sessionId = sessionId || process.env.RUMBLE_SESSION_ID || generateId();
     }
 
-    private async fetch<T>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<T> {
+    private async fetch<T>(endpoint: string, params?: Record<string, string | number | boolean>, retryOnAuth: boolean = true): Promise<T> {
         const url = new URL(`${BASE_URL}${endpoint}`);
 
         if (params) {
@@ -41,9 +48,12 @@ export class RumbleClient {
             });
         }
 
+        // Get valid token (auto-refreshes if needed)
+        const token = await this.tokenManager.getValidToken();
+
         const response = await fetch(url.toString(), {
             headers: {
-                'Authorization': `Bearer ${this.token}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'x-rumble-device-id': this.deviceId,
@@ -51,6 +61,17 @@ export class RumbleClient {
                 'x-rumble-request-id': generateId(),
             },
         });
+
+        // Handle 401 by trying to refresh token and retry once
+        if (response.status === 401 && retryOnAuth && this.tokenManager.hasRefreshToken()) {
+            try {
+                await this.tokenManager.refresh();
+                // Retry the request with new token (but don't retry again)
+                return this.fetch<T>(endpoint, params, false);
+            } catch (refreshError) {
+                throw new Error(`API Error: 401 Unauthorized (token refresh failed: ${refreshError})`);
+            }
+        }
 
         if (!response.ok) {
             throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -86,6 +107,16 @@ export class RumbleClient {
         return response.objects || [];
     }
 
+    async getFundamentalCallDetails(callId: string): Promise<any> {
+        const response = await this.fetch<{ object: any }>(`/fundamental-calls/${callId}`);
+        return response.object || response;
+    }
+
+    async getTechnicalCallDetails(callId: string): Promise<any> {
+        const response = await this.fetch<{ object: any }>(`/technical-calls/${callId}`);
+        return response.object || response;
+    }
+
     async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
         return this.fetch<TrackRecord>('/track-record/fundamental', {
             market: market || this.defaultMarket,
@@ -109,21 +140,8 @@ export class RumbleClient {
     }
 
     async getAssetList(listId: string): Promise<AssetList> {
-        // Asset lists are accessed via a different URL pattern
-        const response = await fetch(`https://therumble.app/assets-lists/${listId}`, {
-            headers: {
-                'Authorization': `Bearer ${this.token}`,
-                'Accept': 'application/json',
-                'x-rumble-device-id': this.deviceId,
-                'x-rumble-session-id': this.sessionId,
-                'x-rumble-request-id': generateId(),
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-
-        return response.json() as Promise<AssetList>;
+        // Asset lists use /api/assets-list/{id} endpoint (singular)
+        const response = await this.fetch<{ object: AssetList }>(`/assets-list/${listId}`);
+        return response.object || response as unknown as AssetList;
     }
 }
