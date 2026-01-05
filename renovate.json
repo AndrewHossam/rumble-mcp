@@ -1,0 +1,57 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended",
+        ":semanticCommits",
+        ":automergeMinor",
+        ":automergeDigest",
+        "schedule:weekly"
+    ],
+    "labels": [
+        "dependencies"
+    ],
+    "rangeStrategy": "bump",
+    "automerge": true,
+    "automergeType": "pr",
+    "platformAutomerge": true,
+    "packageRules": [
+        {
+            "description": "Auto-merge patch updates",
+            "matchUpdateTypes": [
+                "patch",
+                "pin",
+                "digest"
+            ],
+            "automerge": true
+        },
+        {
+            "description": "Auto-merge minor updates for dev dependencies",
+            "matchDepTypes": [
+                "devDependencies"
+            ],
+            "matchUpdateTypes": [
+                "minor"
+            ],
+            "automerge": true
+        },
+        {
+            "description": "Group all non-major updates",
+            "matchUpdateTypes": [
+                "minor",
+                "patch"
+            ],
+            "groupName": "dependencies (non-major)"
+        },
+        {
+            "description": "Require manual review for major updates",
+            "matchUpdateTypes": [
+                "major"
+            ],
+            "automerge": false,
+            "labels": [
+                "dependencies",
+                "breaking"
+            ]
+        }
+    ]
+}
