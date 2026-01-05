@@ -238,6 +238,16 @@ npm test
 
 ---
 
+## Support & Sponsorship
+
+If you find this MCP useful, consider supporting the project:
+
+- **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International / Private)
+- **[Support via TipTea](https://www.tiptea.app/#/u/andrewhossam)** (Egypt Local: InstaPay / Vodafone Cash)
+- **[Buy me a coffee](https://ko-fi.com/rumblemcp)** (via PayPal)
+
+All contributions go towards maintaining the data extraction logic and server costs.
+
 ## License
 
 MIT © 2026
