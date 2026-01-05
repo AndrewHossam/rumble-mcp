@@ -32,7 +32,7 @@ const client = new RumbleClient(FIREBASE_TOKEN, DEFAULT_MARKET, undefined, undef
 const server = new Server(
     {
         name: 'rumble-mcp-server',
-        version: '1.4.0',
+        version: '1.4.1',
     },
     {
         capabilities: {
