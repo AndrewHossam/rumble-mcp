@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Helper script to extract Firebase token from TheRumble.app
- * 
+ *
  * Usage:
  *   1. Open https://therumble.app in your browser and log in
  *   2. Open DevTools (F12) > Console
