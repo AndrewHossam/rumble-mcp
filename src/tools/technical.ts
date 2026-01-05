@@ -3,7 +3,7 @@ import type { RumbleClient } from '../api/client.js';
 
 export const technicalToolSchemas = {
     get_technical_calls: {
-        description: 'Get a list of active technical trading calls from TheRumble. Returns short-term trading signals with entry, target, and stop-loss prices.',
+        description: 'Get a list of active technical trading calls from TheRumble. Returns short-term trading signals with entry, target, and stop-loss prices. Use get_call_details for full details on a specific call.',
         inputSchema: z.object({
             limit: z.number().min(1).max(50).default(10).describe('Maximum number of calls to return'),
             skip: z.number().min(0).default(0).describe('Number of calls to skip for pagination'),
@@ -54,3 +54,5 @@ export async function handleTechnicalTool(
             throw new Error(`Unknown technical tool: ${toolName}`);
     }
 }
+
+

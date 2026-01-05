@@ -3,7 +3,7 @@ import type { RumbleClient } from '../api/client.js';
 
 export const fundamentalToolSchemas = {
     get_fundamental_calls: {
-        description: 'Get a list of active fundamental investment calls from TheRumble. Returns stock recommendations with target prices, performance, and analyst info.',
+        description: 'Get a list of active fundamental investment calls from TheRumble. Returns stock recommendations with target prices, performance, and analyst info. Use get_call_details for full details on a specific call.',
         inputSchema: z.object({
             limit: z.number().min(1).max(50).default(10).describe('Maximum number of calls to return'),
             skip: z.number().min(0).default(0).describe('Number of calls to skip for pagination'),
@@ -65,3 +65,4 @@ export async function handleFundamentalTool(
             throw new Error(`Unknown fundamental tool: ${toolName}`);
     }
 }
+

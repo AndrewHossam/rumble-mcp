@@ -11,11 +11,13 @@ import { RumbleClient } from './api/client.js';
 import { fundamentalToolSchemas, handleFundamentalTool } from './tools/fundamental.js';
 import { technicalToolSchemas, handleTechnicalTool } from './tools/technical.js';
 import { assetToolSchemas, handleAssetTool } from './tools/assets.js';
+import { callDetailsToolSchemas, handleCallDetailsTool } from './tools/call-details.js';
 
 // Load environment variables
 config();
 
 const FIREBASE_TOKEN = process.env.RUMBLE_FIREBASE_TOKEN;
+const REFRESH_TOKEN = process.env.RUMBLE_REFRESH_TOKEN;
 const DEFAULT_MARKET = process.env.RUMBLE_MARKET || 'EGY';
 
 if (!FIREBASE_TOKEN) {
@@ -24,13 +26,13 @@ if (!FIREBASE_TOKEN) {
 }
 
 // Initialize Rumble API client
-const client = new RumbleClient(FIREBASE_TOKEN, DEFAULT_MARKET);
+const client = new RumbleClient(FIREBASE_TOKEN, DEFAULT_MARKET, undefined, undefined, REFRESH_TOKEN);
 
 // Create MCP server
 const server = new Server(
     {
         name: 'rumble-mcp-server',
-        version: '1.0.0',
+        version: '1.4.0',
     },
     {
         capabilities: {
@@ -44,6 +46,7 @@ const allToolSchemas = {
     ...fundamentalToolSchemas,
     ...technicalToolSchemas,
     ...assetToolSchemas,
+    ...callDetailsToolSchemas,
 };
 
 // Register tool listing handler
@@ -64,7 +67,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
         let result: unknown;
 
-        if (name in fundamentalToolSchemas) {
+        if (name in callDetailsToolSchemas) {
+            result = await handleCallDetailsTool(client, name, args);
+        } else if (name in fundamentalToolSchemas) {
             result = await handleFundamentalTool(client, name, args);
         } else if (name in technicalToolSchemas) {
             result = await handleTechnicalTool(client, name, args);
@@ -107,3 +112,4 @@ main().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
 });
+

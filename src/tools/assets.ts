@@ -1,18 +1,18 @@
 import { z } from 'zod';
 import type { RumbleClient } from '../api/client.js';
 
-// Known asset list IDs
+// Known asset list IDs (verified from Rumble API)
 export const KNOWN_LISTS = {
-    'rfp-egx': '5L2uHydWyA4BLLa6qLzG3b',      // Rumble Fundamental Portfolio - EGX
-    'bottom-fisher': '5YyAHOWssTIyClNZ9PaJ64', // Bottom Fisher (Undervalued)
-    'rtp-egx': 'undT2QOpIK9stSeq785tk',        // Rumble Technical Portfolio - EGX
+    'rfp-egx': '5L2uHydWyA4BLLa6qLzG3b',      // Rumble Fundamental Portfolio (RFP)
+    'bottom-fisher': '5YyAHOWssTIyClNZ9PaJ64', // Bottom Fisher (Undervalued stocks)
+    'rsp-egx': 'undT2QOpIK9stSeq785tk',        // Rumble Shariah Portfolio (RSP) - Shariah-compliant
 } as const;
 
 export const assetToolSchemas = {
     get_asset_list: {
         description: `Get a curated portfolio/asset list from TheRumble by ID or alias.`,
         inputSchema: z.object({
-            listId: z.string().describe('Asset list ID or alias (rfp-egx, bottom-fisher, rtp-egx)'),
+            listId: z.string().describe('Asset list ID or alias (rfp-egx, bottom-fisher, rsp-egx)'),
         }),
     },
     get_rfp_portfolio: {
@@ -23,8 +23,8 @@ export const assetToolSchemas = {
         description: 'Get the Bottom Fisher Portfolio - Undervalued stocks with high upside potential.',
         inputSchema: z.object({}),
     },
-    get_rtp_portfolio: {
-        description: 'Get the Rumble Technical Portfolio (RTP) - Short to medium-term trading picks based on technical analysis.',
+    get_rsp_portfolio: {
+        description: 'Get the Rumble Shariah Portfolio (RSP) - Shariah-compliant stocks handpicked for the Egyptian market.',
         inputSchema: z.object({}),
     },
     list_known_portfolios: {
@@ -54,8 +54,8 @@ export async function handleAssetTool(
             return await client.getAssetList(KNOWN_LISTS['bottom-fisher']);
         }
 
-        case 'get_rtp_portfolio': {
-            return await client.getAssetList(KNOWN_LISTS['rtp-egx']);
+        case 'get_rsp_portfolio': {
+            return await client.getAssetList(KNOWN_LISTS['rsp-egx']);
         }
 
         case 'list_known_portfolios': {
@@ -64,7 +64,7 @@ export async function handleAssetTool(
                     {
                         alias: 'rfp-egx',
                         id: KNOWN_LISTS['rfp-egx'],
-                        name: 'Rumble Fundamental Portfolio - EGX',
+                        name: 'Rumble Fundamental Portfolio (RFP)',
                         description: 'Long-term investment picks based on fundamental analysis',
                     },
                     {
@@ -74,10 +74,10 @@ export async function handleAssetTool(
                         description: 'Undervalued stocks with high upside potential',
                     },
                     {
-                        alias: 'rtp-egx',
-                        id: KNOWN_LISTS['rtp-egx'],
-                        name: 'Rumble Technical Portfolio - EGX',
-                        description: 'Short to medium-term trading picks based on technical analysis',
+                        alias: 'rsp-egx',
+                        id: KNOWN_LISTS['rsp-egx'],
+                        name: 'Rumble Shariah Portfolio (RSP)',
+                        description: 'Shariah-compliant stocks for the Egyptian market',
                     },
                 ],
             };

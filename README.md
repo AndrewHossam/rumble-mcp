@@ -50,19 +50,23 @@ npm link  # Makes 'rumble-mcp' globally available
 
 ---
 
-## Getting Your Auth Token
+## Getting Your Credentials
 
-TheRumble requires a Firebase authentication token. Run the helper script:
+TheRumble uses Firebase authentication. To prevent your token from expiring every hour, you should use both an ID token and a Refresh token.
+
+Run the helper script to get both:
 
 ```bash
-npx rumble-mcp && npm run extract-token
+npx rumble-mcp extract-token
+# OR inside the project
+npm run extract-token
 ```
 
-Or paste this in your browser console on [therumble.app](https://therumble.app) (while logged in):
+Paste the generated script into your browser console on [therumble.app](https://therumble.app). It will give you the `.env` content to copy.
 
-```javascript
-JSON.parse(localStorage.getItem('auth-store')).state.firebase_token
-```
+**Why use a refresh token?**
+- Without it: Credentials expire in 1 hour
+- With it: The MCP auto-refreshes your session indefinitely 🚀
 
 ---
 
@@ -81,7 +85,8 @@ JSON.parse(localStorage.getItem('auth-store')).state.firebase_token
         "command": "npx",
         "args": ["rumble-mcp"],
         "env": {
-          "RUMBLE_FIREBASE_TOKEN": "your_token_here"
+          "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
+          "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
         }
       }
     }
@@ -100,7 +105,8 @@ JSON.parse(localStorage.getItem('auth-store')).state.firebase_token
     "command": "npx",
     "args": ["rumble-mcp"],
     "env": {
-      "RUMBLE_FIREBASE_TOKEN": "your_token_here"
+      "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
+      "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
     }
   }
 }
@@ -154,16 +160,36 @@ Most MCP-compatible clients follow a similar pattern:
 
 ## Available Tools
 
+### Call Discovery
 | Tool | Description |
 |------|-------------|
-| `get_fundamental_calls` | List active fundamental investment calls |
-| `get_fundamental_track_record` | Get overall fundamental track record |
-| `get_latest_releases` | Get latest content releases |
-| `get_technical_calls` | List active technical trading calls |
-| `get_technical_track_record` | Get overall technical track record |
-| `get_rfp_portfolio` | Get Rumble Fundamental Portfolio (RFP) - Long-term picks |
-| `get_bottom_fisher_portfolio` | Get Bottom Fisher Portfolio - Undervalued stocks |
-| `get_rtp_portfolio` | Get Rumble Technical Portfolio (RTP) - Short-term trades |
+| `get_fundamental_calls` | List active fundamental investment calls with summaries |
+| `get_technical_calls` | List active technical trading calls with entry/target/stop-loss |
+
+### Call Details (Unified)
+| Tool | Description |
+|------|-------------|
+| `get_call_details` | Get full details for any call (fundamental or technical) by ID. Supports optional `sections` filter. |
+
+**`get_call_details` Parameters:**
+- `callId` (required): The call ID from list results
+- `type` (optional): `"fundamental"` or `"technical"` - auto-detected if not provided
+- `sections` (optional): Array of sections to include: `["story", "performance", "updates", "news"]`
+
+**Example:**
+```json
+{"callId": "7CRN9unbNwyniJPAlLYaVR", "sections": ["performance", "updates"]}
+```
+
+### Track Record & Portfolios
+| Tool | Description |
+|------|-------------|
+| `get_fundamental_track_record` | Overall fundamental track record (win rate, alpha) |
+| `get_technical_track_record` | Overall technical track record |
+| `get_latest_releases` | Latest content releases |
+| `get_rfp_portfolio` | Rumble Fundamental Portfolio (long-term picks) |
+| `get_bottom_fisher_portfolio` | Bottom Fisher Portfolio (undervalued stocks) |
+| `get_rsp_portfolio` | Rumble Shariah Portfolio (Shariah-compliant stocks) |
 | `get_asset_list` | Get any portfolio by custom ID |
 | `list_known_portfolios` | List all known portfolio aliases |
 
@@ -175,7 +201,9 @@ Once configured, ask your AI assistant:
 
 > "What are the current active fundamental calls on Rumble?"
 
-> "Show me the track record for technical calls"
+> "Get full details for call 7CRN9unbNwyniJPAlLYaVR"
+
+> "Show me just the performance and updates for that ENGC call"
 
 > "Get the Bottom Fisher portfolio"
 

@@ -11,49 +11,73 @@
 
 const EXTRACTION_SCRIPT = `
 // Paste this in your browser console on therumble.app
-(function() {
-    // The token is stored in localStorage under 'auth-store' as JSON
+(async function() {
+    console.log('🔍 Searching for tokens in LocalStorage and IndexedDB...');
+
+    // Helper to get refresh token from IndexedDB
+    const getRefreshTokenFromDB = () => {
+        return new Promise((resolve) => {
+            const request = indexedDB.open('firebaseLocalStorageDb');
+            request.onerror = () => resolve(null);
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+                    resolve(null);
+                    return;
+                }
+                const transaction = db.transaction(['firebaseLocalStorage'], 'readonly');
+                const store = transaction.objectStore('firebaseLocalStorage');
+                const getAll = store.getAll();
+                getAll.onsuccess = () => {
+                    const res = getAll.result;
+                    if (res && res.length > 0) {
+                        for (const item of res) {
+                            if (item.value && item.value.stsTokenManager && item.value.stsTokenManager.refreshToken) {
+                                resolve(item.value.stsTokenManager.refreshToken);
+                                return;
+                            }
+                        }
+                    }
+                    resolve(null);
+                };
+                getAll.onerror = () => resolve(null);
+            };
+        });
+    };
+
+    // 1. Get Access Token from LocalStorage
+    let token = null;
     const authStore = localStorage.getItem('auth-store');
-    
     if (authStore) {
         try {
             const parsed = JSON.parse(authStore);
-            const token = parsed.state?.firebase_token || parsed.firebase_token;
-            
-            if (token) {
-                console.log('\\n🔑 Firebase Token Found:\\n');
-                console.log(token);
-                navigator.clipboard.writeText(token).then(() => {
-                    console.log('\\n📋 Token copied to clipboard!');
-                }).catch(() => {
-                    console.log('\\n⚠️ Could not copy to clipboard. Please copy manually from above.');
-                });
-                return token;
-            }
-        } catch(e) {
-            console.log('Error parsing auth-store:', e);
-        }
+            token = parsed.state?.firebase_token || parsed.firebase_token;
+        } catch(e) {}
     }
-    
-    // Fallback: Try to extract from Discord integration link
-    const discordLink = document.querySelector('a[href*="firebase_token"]');
-    if (discordLink) {
-        const url = new URL(discordLink.href, window.location.origin);
-        const token = url.searchParams.get('firebase_token');
-        if (token) {
-            console.log('\\n🔑 Firebase Token Found (from Discord link):\\n');
-            console.log(token);
-            navigator.clipboard.writeText(token).then(() => {
-                console.log('\\n📋 Token copied to clipboard!');
-            }).catch(() => {
-                console.log('\\n⚠️ Could not copy to clipboard. Please copy manually from above.');
-            });
-            return token;
+
+    // 2. Get Refresh Token from IndexedDB
+    const refresh = await getRefreshTokenFromDB();
+
+    if (token) {
+        console.log('\\n🔑 Rumple Credentials Found:\\n');
+        console.log(\`RUMBLE_FIREBASE_TOKEN=\${token}\`);
+        if (refresh) {
+            console.log(\`RUMBLE_REFRESH_TOKEN=\${refresh || 'NOT FOUND'}\`);
+        } else {
+            console.log('\\n⚠️ Refresh token not found in IndexedDB. API will expire in 1 hour.');
         }
+        
+        const envContent = \`RUMBLE_FIREBASE_TOKEN=\${token}\\nRUMBLE_REFRESH_TOKEN=\${refresh || ''}\\nRUMBLE_MARKET=EGY\`;
+        
+        try {
+            await navigator.clipboard.writeText(envContent);
+            console.log('\\n📋 Full .env content copied to clipboard! Paste directly into your .env file.');
+        } catch (err) {
+            console.log('\\n⚠️ Could not copy to clipboard. Please copy manually from above.');
+        }
+    } else {
+        console.log('❌ No access token found. Make sure you are logged in to therumble.app');
     }
-    
-    console.log('❌ No token found. Make sure you are logged in to therumble.app');
-    return null;
 })();
 `;
 
