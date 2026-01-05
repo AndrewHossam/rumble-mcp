@@ -233,7 +233,7 @@ npm test
 
 If you find this MCP useful, consider supporting the project:
 
-- **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International / Private)
+- **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International)
 - **[Support via TipTea](https://www.tiptea.app/#/u/andrewhossam)** (Egypt Local: InstaPay / Vodafone Cash)
 
 ## License
