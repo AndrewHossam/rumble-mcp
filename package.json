@@ -4,7 +4,7 @@
   "description": "MCP server for TheRumble.app investment research data",
   "main": "dist/index.js",
   "bin": {
-    "rumble-mcp": "./dist/index.js"
+    "rumble-mcp": "dist/index.js"
   },
   "type": "module",
   "keywords": [
@@ -16,6 +16,14 @@
     "stocks"
   ],
   "author": "Andrew Hossam <me@andrewhossam.com> (https://andrewhossam.com)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndrewHossam/rumble-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AndrewHossam/rumble-mcp/issues"
+  },
+  "homepage": "https://github.com/AndrewHossam/rumble-mcp#readme",
   "license": "MIT",
   "files": [
     "dist",
