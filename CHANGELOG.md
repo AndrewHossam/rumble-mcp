@@ -1,3 +1,10 @@
+## [1.4.4](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.3...v1.4.4) (2026-01-06)
+
+
+### Bug Fixes
+
+* Fix semantic release issue ([#10](https://github.com/AndrewHossam/rumble-mcp/issues/10)) ([6fc3f62](https://github.com/AndrewHossam/rumble-mcp/commit/6fc3f620f2716e1089fe7938f77ac3976bfab9ae))
+
 ## [1.4.3](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.2...v1.4.3) (2026-01-06)
 
 
