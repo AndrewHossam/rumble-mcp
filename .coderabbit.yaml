@@ -11,11 +11,8 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    # Enable reviews on all branches, not just default
+    # Enable reviews on all branches targeting main
     base_branches:
       - "main"
-      - "feat/**"
-      - "fix/**"
-      - "chore/**"
 chat:
   auto_reply: true
