@@ -1,0 +1,7 @@
+## [1.4.3](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.2...v1.4.3) (2026-01-06)
+
+
+### Bug Fixes
+
+* adjust coverage thresholds and exclusions ([d3a1a6e](https://github.com/AndrewHossam/rumble-mcp/commit/d3a1a6ee3886c5f4c451d3d41f045076d5d16aba))
+* use github app token for semantic-release to bypass branch protection ([#9](https://github.com/AndrewHossam/rumble-mcp/issues/9)) ([8df3bfd](https://github.com/AndrewHossam/rumble-mcp/commit/8df3bfdd218665cc09cba099240efe5c532a751d))
