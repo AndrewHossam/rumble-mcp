@@ -1,6 +1,8 @@
 # Rumble MCP
 
+[![CI](https://github.com/AndrewHossam/rumble-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/AndrewHossam/rumble-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/rumble-mcp.svg)](https://www.npmjs.com/package/rumble-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/rumble-mcp.svg)](https://www.npmjs.com/package/rumble-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > ⚠️ **Disclaimer**: This tool requires a valid subscription to [TheRumble.app](https://therumble.app). It is intended for **personal use only**. Any misuse of this tool is not the responsibility of the developer. By using this tool, you agree to comply with TheRumble's terms of service.
@@ -14,7 +16,7 @@ An MCP (Model Context Protocol) server that provides AI assistants with access t
   <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22rumble%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22rumble-mcp%22%5D%7D">
     <img src="https://img.shields.io/badge/VS_Code-Install_MCP-0078d4?style=for-the-badge&logo=visual-studio-code" alt="Install in VS Code">
   </a>
-  <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=rumble&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22rumble-mcp%22%5D%7D">
+  <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=rumble&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyJydW1ibGUtbWNwIl19">
     <img src="https://img.shields.io/badge/Cursor-Install_MCP-000000?style=for-the-badge&logo=cursor" alt="Install in Cursor">
   </a>
 </p>
@@ -86,7 +88,8 @@ Paste the generated script into your browser console on [therumble.app](https://
         "args": ["rumble-mcp"],
         "env": {
           "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
-          "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
+          "RUMBLE_REFRESH_TOKEN": "your_refresh_token",
+          "RUMBLE_MARKET": "EGY"
         }
       }
     }
@@ -106,7 +109,8 @@ Paste the generated script into your browser console on [therumble.app](https://
     "args": ["rumble-mcp"],
     "env": {
       "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
-      "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
+      "RUMBLE_REFRESH_TOKEN": "your_refresh_token",
+      "RUMBLE_MARKET": "EGY"
     }
   }
 }
@@ -124,7 +128,8 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
       "args": ["rumble-mcp"],
       "env": {
         "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
-        "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
+        "RUMBLE_REFRESH_TOKEN": "your_refresh_token",
+        "RUMBLE_MARKET": "EGY"
       }
     }
   }
@@ -141,6 +146,7 @@ Then set your tokens:
 ```bash
 export RUMBLE_FIREBASE_TOKEN="your_firebase_token"
 export RUMBLE_REFRESH_TOKEN="your_refresh_token"
+export RUMBLE_MARKET="EGY"  # Optional, defaults to EGY
 ```
 
 ### 🤖 Other AI Clients (Windsurf, Continue, etc.)
@@ -154,7 +160,8 @@ Most MCP-compatible clients follow a similar pattern:
   "args": ["rumble-mcp"],
   "env": {
     "RUMBLE_FIREBASE_TOKEN": "your_firebase_token",
-    "RUMBLE_REFRESH_TOKEN": "your_refresh_token"
+    "RUMBLE_REFRESH_TOKEN": "your_refresh_token",
+    "RUMBLE_MARKET": "EGY"
   }
 }
 ```
