@@ -1,3 +1,13 @@
+# [2.0.0](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.4...v2.0.0) (2026-01-06)
+
+
+* feat!: v2.0.0 - production quality release with automated ci/cd ([#11](https://github.com/AndrewHossam/rumble-mcp/issues/11)) ([1760f61](https://github.com/AndrewHossam/rumble-mcp/commit/1760f61d894c38223a5fde240b3ac541674e256d))
+
+
+### BREAKING CHANGES
+
+* comprehensive quality tooling and automated release pipeline
+
 ## [1.4.4](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.3...v1.4.4) (2026-01-06)
 
 
