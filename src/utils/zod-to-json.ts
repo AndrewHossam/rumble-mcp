@@ -7,6 +7,7 @@ export function zodToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
   const def = schema._def;
 
   if (def.typeName === 'ZodObject') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shape = (schema as ZodObject<any>).shape;
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
@@ -21,10 +22,12 @@ export function zodToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
 
       // Unwrap defaults and optionals
       if (propDef.typeName === 'ZodDefault') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         innerSchema = (propSchema as ZodDefault<any>).removeDefault();
         hasDefault = true;
       }
       if (innerSchema._def.typeName === 'ZodOptional') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         innerSchema = (innerSchema as ZodOptional<any>).unwrap();
         isOptional = true;
       }
@@ -79,6 +82,7 @@ export function zodToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
   if (def.typeName === 'ZodEnum') {
     return {
       type: 'string',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       enum: (schema as ZodEnum<any>)._def.values,
     };
   }
@@ -91,6 +95,7 @@ export function zodToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
   }
 
   if (def.typeName === 'ZodDefault') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inner = zodToJsonSchema((schema as ZodDefault<any>).removeDefault());
     return {
       ...inner,
@@ -99,6 +104,7 @@ export function zodToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
   }
 
   if (def.typeName === 'ZodOptional') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return zodToJsonSchema((schema as ZodOptional<any>).unwrap());
   }
 

@@ -4,6 +4,8 @@ import type {
   TechnicalCall,
   TrackRecord,
   AssetList,
+  CallDetails,
+  LatestRelease,
 } from '../types/index.js';
 import { TokenManager } from './token-refresh.js';
 
@@ -123,13 +125,13 @@ export class RumbleClient {
     return response.objects || [];
   }
 
-  async getFundamentalCallDetails(callId: string): Promise<any> {
-    const response = await this.fetch<{ object: any }>(`/fundamental-calls/${callId}`);
+  async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
+    const response = await this.fetch<{ object: CallDetails }>(`/fundamental-calls/${callId}`);
     return response.object || response;
   }
 
-  async getTechnicalCallDetails(callId: string): Promise<any> {
-    const response = await this.fetch<{ object: any }>(`/technical-calls/${callId}`);
+  async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
+    const response = await this.fetch<{ object: CallDetails }>(`/technical-calls/${callId}`);
     return response.object || response;
   }
 
@@ -146,8 +148,8 @@ export class RumbleClient {
     });
   }
 
-  async getLatestReleases(market?: string): Promise<any[]> {
-    const response = await this.fetch<{ objects: any[] }>('/latest-releases', {
+  async getLatestReleases(market?: string): Promise<LatestRelease[]> {
+    const response = await this.fetch<{ objects: LatestRelease[] }>('/latest-releases', {
       fundamental_content_only: true,
       market: market || this.defaultMarket,
       expert_tool_table: true,

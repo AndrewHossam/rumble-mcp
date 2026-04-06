@@ -247,7 +247,6 @@ This project includes automated safety checks to prevent breaking changes:
 
 If you find this MCP useful, consider supporting the project:
 
-- **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International)
 - **[Support via TipTea](https://www.tiptea.app/#/u/andrewhossam)** (Egypt Local: InstaPay / Vodafone Cash)
 
 ## License
