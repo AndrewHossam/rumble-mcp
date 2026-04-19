@@ -14,6 +14,15 @@
     "automerge": true,
     "automergeType": "pr",
     "platformAutomerge": true,
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "schedule": "at any time",
+        "automerge": true,
+        "labels": [
+            "dependencies",
+            "security"
+        ]
+    },
     "packageRules": [
         {
             "description": "Auto-merge patch updates",
