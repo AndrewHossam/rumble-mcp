@@ -37,13 +37,17 @@ export const TechnicalCallSchema = z.object({
 });
 
 export const TrackRecordSchema = z.object({
-  total_calls: z.number().optional(),
-  winning_calls: z.number().optional(),
-  losing_calls: z.number().optional(),
-  win_rate: z.number().optional(),
-  average_return: z.number().optional(),
-  alpha: z.number().optional(),
-  benchmark_performance: z.number().optional(),
+  // Fundamental track record fields
+  avgCallsAlpha: z.number().optional(),
+  avgCallsReturn: z.number().optional(),
+  avgIndexReturn: z.number().optional(),
+  avgHoldingPeriod: z.number().optional(),
+  callsCount: z.number().optional(),
+  index: z.string().optional(),
+  // Technical track record fields
+  avgWin: z.number().optional(),
+  avgLoss: z.number().optional(),
+  hitRatio: z.number().optional(),
 });
 
 export const AssetListSchema = z.object({

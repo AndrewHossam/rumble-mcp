@@ -134,6 +134,52 @@ describe('RumbleClient', () => {
     });
   });
 
+  describe('getFundamentalTrackRecord', () => {
+    it('calls the correct endpoint with a singular market param (not market[])', async () => {
+      const mockObject = { avgCallsReturn: 0.92, callsCount: 18, index: 'EGX30CAPPED' };
+      mockFetch.mockResolvedValue(
+        makeOkResponse({ type: 'FundamentalTrackRecord', object: mockObject })
+      );
+
+      const result = await client.getFundamentalTrackRecord('EGY');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/track-record/fundamental');
+      expect(calledUrl).toContain('market=EGY');
+      expect(calledUrl).not.toContain('market%5B%5D');
+      expect(result).toEqual(mockObject);
+    });
+
+    it('uses the default market when none is provided', async () => {
+      const mockObject = { avgCallsReturn: 0.5, callsCount: 10 };
+      mockFetch.mockResolvedValue(
+        makeOkResponse({ type: 'FundamentalTrackRecord', object: mockObject })
+      );
+
+      await client.getFundamentalTrackRecord();
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('market=EGY');
+    });
+  });
+
+  describe('getTechnicalTrackRecord', () => {
+    it('calls the correct endpoint with a singular market param (not market[])', async () => {
+      const mockObject = { avgCallsReturn: 0.069, hitRatio: 0.65, callsCount: 427 };
+      mockFetch.mockResolvedValue(
+        makeOkResponse({ type: 'TechnicalTrackRecord', object: mockObject })
+      );
+
+      const result = await client.getTechnicalTrackRecord('EGY');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/track-record/technical');
+      expect(calledUrl).toContain('market=EGY');
+      expect(calledUrl).not.toContain('market%5B%5D');
+      expect(result).toEqual(mockObject);
+    });
+  });
+
   describe('getAssetList', () => {
     it('calls the correct endpoint with the list ID', async () => {
       const mockList = { id: 'list-123', name: 'Test List' };
