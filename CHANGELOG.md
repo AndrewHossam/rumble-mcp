@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/AndrewHossam/rumble-mcp/compare/v2.0.0...v2.1.0) (2026-04-19)
+
+
+### Features
+
+* code quality improvements and track record 500 fix ([#12](https://github.com/AndrewHossam/rumble-mcp/issues/12)) ([4b9aec9](https://github.com/AndrewHossam/rumble-mcp/commit/4b9aec989a3dfc984e6d473de38ec3c8180b431e))
+
 # [2.0.0](https://github.com/AndrewHossam/rumble-mcp/compare/v1.4.4...v2.0.0) (2026-01-06)
 
 
