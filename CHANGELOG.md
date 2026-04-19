@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/AndrewHossam/rumble-mcp/compare/v2.1.0...v2.1.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* resolve npm audit vulnerabilities and enforce security checks ([#13](https://github.com/AndrewHossam/rumble-mcp/issues/13)) ([d816a2d](https://github.com/AndrewHossam/rumble-mcp/commit/d816a2d9b50ae60070b96fb1a276f6799f300850))
+
 # [2.1.0](https://github.com/AndrewHossam/rumble-mcp/compare/v2.0.0...v2.1.0) (2026-04-19)
 
 
