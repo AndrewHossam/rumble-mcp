@@ -4,6 +4,8 @@ import type {
   TechnicalCall,
   TrackRecord,
   AssetList,
+  CallDetails,
+  LatestRelease,
 } from '../types/index.js';
 import { TokenManager } from './token-refresh.js';
 
@@ -123,31 +125,33 @@ export class RumbleClient {
     return response.objects || [];
   }
 
-  async getFundamentalCallDetails(callId: string): Promise<any> {
-    const response = await this.fetch<{ object: any }>(`/fundamental-calls/${callId}`);
+  async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
+    const response = await this.fetch<{ object: CallDetails }>(`/fundamental-calls/${callId}`);
     return response.object || response;
   }
 
-  async getTechnicalCallDetails(callId: string): Promise<any> {
-    const response = await this.fetch<{ object: any }>(`/technical-calls/${callId}`);
+  async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
+    const response = await this.fetch<{ object: CallDetails }>(`/technical-calls/${callId}`);
     return response.object || response;
   }
 
   async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
-    return this.fetch<TrackRecord>('/track-record/fundamental', {
-      market: market || this.defaultMarket,
-    });
+    // The track-record endpoints require a singular `market` query param.
+    // The shared fetch() helper converts `market` keys to `market[]`, which
+    // causes a 500 on this endpoint. Build the query string directly instead.
+    const endpoint = `/track-record/fundamental?market=${encodeURIComponent(market || this.defaultMarket)}`;
+    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
+    return raw.object;
   }
 
   async getTechnicalTrackRecord(market?: string): Promise<TrackRecord> {
-    return this.fetch<TrackRecord>('/track-record/technical', {
-      market: market || this.defaultMarket,
-      expert_tool_table: true,
-    });
+    const endpoint = `/track-record/technical?market=${encodeURIComponent(market || this.defaultMarket)}`;
+    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
+    return raw.object;
   }
 
-  async getLatestReleases(market?: string): Promise<any[]> {
-    const response = await this.fetch<{ objects: any[] }>('/latest-releases', {
+  async getLatestReleases(market?: string): Promise<LatestRelease[]> {
+    const response = await this.fetch<{ objects: LatestRelease[] }>('/latest-releases', {
       fundamental_content_only: true,
       market: market || this.defaultMarket,
       expert_tool_table: true,

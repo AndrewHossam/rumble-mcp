@@ -14,7 +14,7 @@ async function runTest() {
 
   let requestId = 1;
 
-  async function callTool(name: string, args: any = {}) {
+  async function callTool(name: string, args: Record<string, unknown> = {}) {
     return new Promise((resolve, reject) => {
       const id = requestId++;
       const request =

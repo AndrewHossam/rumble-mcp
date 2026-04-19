@@ -1,5 +1,17 @@
 import { z } from 'zod';
 import type { RumbleClient } from '../api/client.js';
+import type {
+  CallDetails,
+  CallDetailsResponse,
+  RichTextDocument,
+  RichTextNode,
+  StorySection,
+  PerformanceSection,
+  FormattedUpdate,
+  FormattedNews,
+  UpdateItem,
+  NewsItem,
+} from '../types/index.js';
 
 /**
  * Unified tool for getting detailed information about any call (fundamental or technical)
@@ -41,10 +53,10 @@ Use the 'sections' parameter to filter which data to return.`,
 /**
  * Extract plain text from Contentful rich text document
  */
-function extractTextFromRichText(richText: any): string {
+function extractTextFromRichText(richText: RichTextDocument | undefined): string {
   if (!richText || !richText.content) return '';
 
-  const extractText = (node: any): string => {
+  const extractText = (node: RichTextNode): string => {
     if (node.nodeType === 'text') {
       return node.value || '';
     }
@@ -55,7 +67,7 @@ function extractTextFromRichText(richText: any): string {
   };
 
   return richText.content
-    .map((block: any) => extractText(block))
+    .map((block: RichTextNode) => extractText(block))
     .filter((text: string) => text.trim())
     .join('\n\n');
 }
@@ -63,7 +75,7 @@ function extractTextFromRichText(richText: any): string {
 /**
  * Format the story section from raw API data
  */
-function formatStory(details: any): any {
+function formatStory(details: CallDetails): StorySection | null {
   if (!details.the_story) return null;
 
   return {
@@ -75,7 +87,7 @@ function formatStory(details: any): any {
 /**
  * Format performance metrics from raw API data
  */
-function formatPerformance(details: any): any {
+function formatPerformance(details: CallDetails): PerformanceSection {
   return {
     start_price: details.start_price,
     current_price: details.current_price,
@@ -92,10 +104,10 @@ function formatPerformance(details: any): any {
 /**
  * Format updates from raw API data
  */
-function formatUpdates(details: any): any[] {
+function formatUpdates(details: CallDetails): FormattedUpdate[] {
   if (!details.updates || !Array.isArray(details.updates)) return [];
 
-  return details.updates.map((update: any) => ({
+  return details.updates.map((update: UpdateItem) => ({
     title: update.title,
     datetime: update.datetime,
     summary: extractTextFromRichText(update.content),
@@ -105,10 +117,10 @@ function formatUpdates(details: any): any[] {
 /**
  * Format news from raw API data
  */
-function formatNews(details: any): any[] {
+function formatNews(details: CallDetails): FormattedNews[] {
   if (!details.news || !Array.isArray(details.news)) return [];
 
-  return details.news.map((item: any) => ({
+  return details.news.map((item: NewsItem) => ({
     title: item.title,
     datetime: item.datetime || item.published_at,
     source: item.source,
@@ -137,7 +149,7 @@ export async function handleCallDetailsTool(
   const includeNews = includeSections.includes('news');
 
   // Fetch call details (try specified type, or fundamental first then technical)
-  let details: any;
+  let details: CallDetails;
   let callType: string;
 
   if (type === 'fundamental') {
@@ -151,14 +163,18 @@ export async function handleCallDetailsTool(
     try {
       details = await client.getFundamentalCallDetails(callId);
       callType = 'fundamental';
-    } catch {
+    } catch (error) {
+      console.error(
+        '[rumble-mcp] Fundamental fetch failed, trying technical:',
+        error instanceof Error ? error.message : error
+      );
       details = await client.getTechnicalCallDetails(callId);
       callType = 'technical';
     }
   }
 
   // Build response with requested sections
-  const response: any = {
+  const response: CallDetailsResponse = {
     // Always include basic info
     id: details.id,
     type: callType,

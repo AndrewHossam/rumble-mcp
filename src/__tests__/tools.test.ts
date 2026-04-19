@@ -5,6 +5,7 @@ import { fundamentalToolSchemas, handleFundamentalTool } from '../tools/fundamen
 import { technicalToolSchemas, handleTechnicalTool } from '../tools/technical.js';
 import { assetToolSchemas, handleAssetTool, KNOWN_LISTS } from '../tools/assets.js';
 import { callDetailsToolSchemas } from '../tools/call-details.js';
+import { TrackRecordSchema } from '../types/index.js';
 
 // Mock RumbleClient
 const createMockClient = () => ({
@@ -172,8 +173,15 @@ describe('Tool Handlers', () => {
       });
     });
 
-    it('should handle get_fundamental_track_record', async () => {
-      const mockTrackRecord = { win_rate: 0.75, average_return: 0.15 };
+    it('should handle get_fundamental_track_record with real field names', async () => {
+      const mockTrackRecord = {
+        avgCallsAlpha: 0.548,
+        avgCallsReturn: 0.92,
+        avgIndexReturn: 0.372,
+        avgHoldingPeriod: 388,
+        callsCount: 18,
+        index: 'EGX30CAPPED',
+      };
       mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
 
       const result = await handleFundamentalTool(
@@ -184,6 +192,25 @@ describe('Tool Handlers', () => {
 
       expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('EGY');
       expect(result).toEqual(mockTrackRecord);
+      // Verify new field names are present in the result
+      expect((result as typeof mockTrackRecord).avgCallsReturn).toBe(0.92);
+      expect((result as typeof mockTrackRecord).callsCount).toBe(18);
+      expect((result as typeof mockTrackRecord).index).toBe('EGX30CAPPED');
+    });
+
+    it('should handle get_fundamental_track_record with a custom market', async () => {
+      const mockTrackRecord = {
+        avgCallsReturn: 0.5,
+        callsCount: 10,
+        avgHoldingPeriod: 200,
+      };
+      mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
+
+      await handleFundamentalTool(mockClient as any, 'get_fundamental_track_record', {
+        market: 'USA',
+      });
+
+      expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('USA');
     });
 
     it('should throw for unknown tool', async () => {
@@ -215,6 +242,37 @@ describe('Tool Handlers', () => {
 
       expect(result).toHaveProperty('count', 1);
       expect(result).toHaveProperty('calls');
+    });
+
+    it('should handle get_technical_track_record with real field names', async () => {
+      const mockTrackRecord = {
+        avgCallsReturn: 0.069,
+        avgHoldingPeriod: 50,
+        avgWin: 0.152,
+        avgLoss: -0.084,
+        hitRatio: 0.649,
+        callsCount: 427,
+      };
+      mockClient.getTechnicalTrackRecord.mockResolvedValue(mockTrackRecord);
+
+      const result = await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {});
+
+      expect(mockClient.getTechnicalTrackRecord).toHaveBeenCalledWith('EGY');
+      expect(result).toEqual(mockTrackRecord);
+      // Verify technical-specific field names are present
+      expect((result as typeof mockTrackRecord).hitRatio).toBe(0.649);
+      expect((result as typeof mockTrackRecord).avgWin).toBe(0.152);
+      expect((result as typeof mockTrackRecord).avgLoss).toBe(-0.084);
+    });
+
+    it('should handle get_technical_track_record with a custom market', async () => {
+      mockClient.getTechnicalTrackRecord.mockResolvedValue({ callsCount: 5 });
+
+      await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {
+        market: 'USA',
+      });
+
+      expect(mockClient.getTechnicalTrackRecord).toHaveBeenCalledWith('USA');
     });
 
     it('should throw for unknown tool', async () => {
@@ -277,6 +335,108 @@ describe('KNOWN_LISTS Constants', () => {
     Object.values(KNOWN_LISTS).forEach(id => {
       expect(typeof id).toBe('string');
       expect(id.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('TrackRecordSchema', () => {
+  describe('fundamental track record shape', () => {
+    it('accepts a valid fundamental response with all fields', () => {
+      const input = {
+        avgCallsAlpha: 0.548,
+        avgCallsReturn: 0.92,
+        avgIndexReturn: 0.372,
+        avgHoldingPeriod: 388,
+        callsCount: 18,
+        index: 'EGX30CAPPED',
+      };
+      const result = TrackRecordSchema.parse(input);
+      expect(result.avgCallsAlpha).toBe(0.548);
+      expect(result.avgCallsReturn).toBe(0.92);
+      expect(result.avgIndexReturn).toBe(0.372);
+      expect(result.avgHoldingPeriod).toBe(388);
+      expect(result.callsCount).toBe(18);
+      expect(result.index).toBe('EGX30CAPPED');
+    });
+
+    it('accepts a fundamental response with only some fields (all are optional)', () => {
+      // All TrackRecordSchema fields are optional — the schema must not reject partial data
+      const result = TrackRecordSchema.parse({ avgCallsReturn: 0.5, callsCount: 10 });
+      expect(result.avgCallsReturn).toBe(0.5);
+      expect(result.callsCount).toBe(10);
+      expect(result.hitRatio).toBeUndefined();
+    });
+
+    it('rejects a fundamental response where a numeric field is a string', () => {
+      expect(() =>
+        TrackRecordSchema.parse({ avgCallsReturn: 'not-a-number', callsCount: 18 })
+      ).toThrow();
+    });
+  });
+
+  describe('technical track record shape', () => {
+    it('accepts a valid technical response with all fields', () => {
+      const input = {
+        avgCallsReturn: 0.069,
+        avgHoldingPeriod: 50,
+        avgWin: 0.152,
+        avgLoss: -0.084,
+        hitRatio: 0.649,
+        callsCount: 427,
+      };
+      const result = TrackRecordSchema.parse(input);
+      expect(result.avgCallsReturn).toBe(0.069);
+      expect(result.avgHoldingPeriod).toBe(50);
+      expect(result.avgWin).toBe(0.152);
+      expect(result.avgLoss).toBe(-0.084);
+      expect(result.hitRatio).toBe(0.649);
+      expect(result.callsCount).toBe(427);
+    });
+
+    it('accepts a technical response without fundamental-only fields', () => {
+      // avgCallsAlpha and avgIndexReturn are fundamental-only — their absence is valid
+      const result = TrackRecordSchema.parse({ hitRatio: 0.6, avgWin: 0.1, avgLoss: -0.05 });
+      expect(result.hitRatio).toBe(0.6);
+      expect(result.avgCallsAlpha).toBeUndefined();
+      expect(result.avgIndexReturn).toBeUndefined();
+    });
+
+    it('rejects a technical response where hitRatio is a string', () => {
+      expect(() =>
+        TrackRecordSchema.parse({ hitRatio: 'high', avgWin: 0.1, avgLoss: -0.05 })
+      ).toThrow();
+    });
+
+    it('rejects a technical response where avgLoss is a positive string', () => {
+      expect(() =>
+        TrackRecordSchema.parse({ hitRatio: 0.6, avgWin: 0.1, avgLoss: 'bad' })
+      ).toThrow();
+    });
+  });
+
+  describe('invalid shapes', () => {
+    it('rejects an entirely non-object value', () => {
+      expect(() => TrackRecordSchema.parse(null)).toThrow();
+      expect(() => TrackRecordSchema.parse('string')).toThrow();
+      expect(() => TrackRecordSchema.parse(42)).toThrow();
+    });
+
+    it('accepts an empty object (all fields are optional)', () => {
+      // The schema allows an empty object — callers must handle missing fields
+      expect(() => TrackRecordSchema.parse({})).not.toThrow();
+    });
+
+    it('rejects stale field names from before the fix', () => {
+      // win_rate and average_return are the OLD field names — the schema must not accept them
+      // as typed fields. Zod strips unknown keys by default (passthrough is not set),
+      // so parsing succeeds but old field names do not appear on the typed output.
+      const result = TrackRecordSchema.parse({ win_rate: 0.75, average_return: 0.15 });
+      // The old keys must NOT be carried through to the typed schema fields
+      expect((result as Record<string, unknown>)['win_rate']).toBeUndefined();
+      expect((result as Record<string, unknown>)['average_return']).toBeUndefined();
+      // And none of the real fields should be accidentally populated
+      expect(result.avgCallsReturn).toBeUndefined();
+      expect(result.hitRatio).toBeUndefined();
     });
   });
 });

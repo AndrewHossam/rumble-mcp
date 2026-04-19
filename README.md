@@ -175,8 +175,8 @@ Most MCP-compatible clients follow a similar pattern:
 | `get_fundamental_calls` | Discovery | List active fundamental investment calls |
 | `get_technical_calls` | Discovery | List active technical trading calls |
 | `get_call_details` | Details | Get full details for any call (fundamental/technical) by ID |
-| `get_fundamental_track_record`| Insights | Overall fundamental track record (win rate, alpha) |
-| `get_technical_track_record` | Insights | Overall technical track record |
+| `get_fundamental_track_record`| Insights | Fundamental track record (avg return, alpha vs index, holding period) |
+| `get_technical_track_record` | Insights | Technical track record (hit ratio, avg win/loss, holding period) |
 | `get_latest_releases` | Insights | Latest content releases |
 | `get_rfp_portfolio` | Portfolios | Rumble Fundamental Portfolio (long-term picks) |
 | `get_bottom_fisher_portfolio` | Portfolios | Bottom Fisher Portfolio (undervalued stocks) |
@@ -247,7 +247,6 @@ This project includes automated safety checks to prevent breaking changes:
 
 If you find this MCP useful, consider supporting the project:
 
-- **[Sponsor on Open Collective](https://opencollective.com/rumble-mcp)** (International)
 - **[Support via TipTea](https://www.tiptea.app/#/u/andrewhossam)** (Egypt Local: InstaPay / Vodafone Cash)
 
 ## License

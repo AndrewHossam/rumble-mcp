@@ -37,13 +37,17 @@ export const TechnicalCallSchema = z.object({
 });
 
 export const TrackRecordSchema = z.object({
-  total_calls: z.number().optional(),
-  winning_calls: z.number().optional(),
-  losing_calls: z.number().optional(),
-  win_rate: z.number().optional(),
-  average_return: z.number().optional(),
-  alpha: z.number().optional(),
-  benchmark_performance: z.number().optional(),
+  // Fundamental track record fields
+  avgCallsAlpha: z.number().optional(),
+  avgCallsReturn: z.number().optional(),
+  avgIndexReturn: z.number().optional(),
+  avgHoldingPeriod: z.number().optional(),
+  callsCount: z.number().optional(),
+  index: z.string().optional(),
+  // Technical track record fields
+  avgWin: z.number().optional(),
+  avgLoss: z.number().optional(),
+  hitRatio: z.number().optional(),
 });
 
 export const AssetListSchema = z.object({
@@ -66,6 +70,121 @@ export type FundamentalCall = z.infer<typeof FundamentalCallSchema>;
 export type TechnicalCall = z.infer<typeof TechnicalCallSchema>;
 export type TrackRecord = z.infer<typeof TrackRecordSchema>;
 export type AssetList = z.infer<typeof AssetListSchema>;
+
+// Rich text types (Contentful format)
+export interface RichTextNode {
+  nodeType: string;
+  value?: string;
+  content?: RichTextNode[];
+}
+
+export interface RichTextDocument {
+  content: RichTextNode[];
+}
+
+// Call detail types
+export interface CallDetails {
+  id: string;
+  title: string;
+  status: string;
+  recommended_action?: string;
+  published_datetime?: string;
+  updated_datetime?: string;
+  asset?: {
+    symbol: string;
+    name: string;
+    industry?: string;
+    icon?: string;
+  };
+  the_story?: RichTextDocument;
+  start_price?: number;
+  current_price?: number;
+  target_price?: number;
+  entry_price?: number;
+  stop_loss?: number;
+  performance?: number;
+  remaining_return?: number;
+  risk_reward?: number;
+  index?: string;
+  updates?: UpdateItem[];
+  news?: NewsItem[];
+}
+
+export interface UpdateItem {
+  title: string;
+  datetime: string;
+  content?: RichTextDocument;
+}
+
+export interface NewsItem {
+  title: string;
+  datetime?: string;
+  published_at?: string;
+  source?: string;
+  url?: string;
+  summary?: string;
+  content?: RichTextDocument;
+}
+
+export interface StorySection {
+  raw: RichTextDocument;
+  text: string;
+}
+
+export interface PerformanceSection {
+  start_price?: number;
+  current_price?: number;
+  target_price?: number;
+  entry_price?: number;
+  stop_loss?: number;
+  performance?: number;
+  remaining_return?: number;
+  risk_reward?: number;
+  index?: string;
+}
+
+export interface FormattedUpdate {
+  title: string;
+  datetime: string;
+  summary: string;
+}
+
+export interface FormattedNews {
+  title: string;
+  datetime?: string;
+  source?: string;
+  url?: string;
+  summary: string;
+}
+
+export interface CallDetailsResponse {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  recommended_action?: string;
+  published_at?: string;
+  updated_at?: string;
+  asset: {
+    symbol: string;
+    name: string;
+    industry?: string;
+    icon?: string;
+  } | null;
+  performance?: PerformanceSection;
+  story?: StorySection | null;
+  updates?: FormattedUpdate[];
+  news?: FormattedNews[];
+}
+
+// Latest release type
+export interface LatestRelease {
+  id: string;
+  title?: string;
+  type?: string;
+  published_at?: string;
+  [key: string]: unknown;
+}
 
 // API Parameters
 export interface ListParams {

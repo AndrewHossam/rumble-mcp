@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -10,6 +13,11 @@ import { technicalToolSchemas, handleTechnicalTool } from './tools/technical.js'
 import { assetToolSchemas, handleAssetTool } from './tools/assets.js';
 import { callDetailsToolSchemas, handleCallDetailsTool } from './tools/call-details.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as {
+  version: string;
+};
+
 // Load environment variables
 config();
 
@@ -18,7 +26,7 @@ const REFRESH_TOKEN = process.env.RUMBLE_REFRESH_TOKEN;
 const DEFAULT_MARKET = process.env.RUMBLE_MARKET || 'EGY';
 
 if (!FIREBASE_TOKEN) {
-  console.error('Error: RUMBLE_FIREBASE_TOKEN environment variable is required');
+  console.error('[rumble-mcp] Error: RUMBLE_FIREBASE_TOKEN environment variable is required');
   process.exit(1);
 }
 
@@ -35,7 +43,7 @@ const client = new RumbleClient(
 const server = new Server(
   {
     name: 'rumble-mcp-server',
-    version: '1.4.1',
+    version: pkg.version,
   },
   {
     capabilities: {
@@ -108,10 +116,10 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Rumble MCP Server running on stdio');
+  console.error('[rumble-mcp] Rumble MCP Server running on stdio');
 }
 
 main().catch(error => {
-  console.error('Fatal error:', error);
+  console.error('[rumble-mcp] Fatal error:', error);
   process.exit(1);
 });
