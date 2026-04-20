@@ -1,0 +1,4 @@
+## 2026-04-20 - [Insecure Randomness in Session Generation]
+**Vulnerability:** The application used `Math.random()` to generate a 21-character alphanumeric identifier for `sessionId` and `deviceId` in `src/api/client.ts`. `Math.random()` is not cryptographically secure, and the sequence of generated numbers can potentially be predicted or determined by an attacker.
+**Learning:** For identifiers that affect session context and authentication flows, predictability is a significant security risk. Using insecure PRNGs opens up possibilities for session hijacking and impersonation, even if it's meant to replicate a client-side library's behavior.
+**Prevention:** Always use cryptographically secure methods like `crypto.randomBytes()` (Node.js) or `crypto.getRandomValues()` (Browser API) when generating security-sensitive values, such as tokens, session identifiers, passwords, or salts.

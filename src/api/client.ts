@@ -7,16 +7,19 @@ import type {
   CallDetails,
   LatestRelease,
 } from '../types/index.js';
+import { randomBytes } from 'crypto';
 import { TokenManager } from './token-refresh.js';
 
 const BASE_URL = 'https://therumble.app/api';
 
-// Generate a random ID similar to what Rumble uses
+// Generate a secure random ID similar to what Rumble uses
 function generateId(length: number = 21): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  // Use cryptographically secure random numbers instead of Math.random()
+  const bytes = randomBytes(length);
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars[bytes[i] % chars.length];
   }
   return result;
 }
