@@ -276,25 +276,31 @@ export interface CallDetailsResponse {
   updates?: FormattedUpdate[];
 }
 
-// ─── Latest Release Type ─────────────────────────────────────────────────────
+// ─── Latest Release Schema & Type ────────────────────────────────────────────
 
-export interface LatestRelease {
-  title?: string;
-  parent_id?: string;
-  update_id?: string;
-  update_datetime?: string;
-  parent_type?: string;
-  read_time?: string | null;
-  watch_time?: string | null;
-  short_description?: string;
-  thumbnail_image?: string;
-  link_to?: string | null;
-  authors?: Array<{
-    id: string;
-    image?: string;
-    nickname?: string;
-  }>;
-}
+export const LatestReleaseSchema = z.object({
+  title: z.string().optional(),
+  parent_id: z.string().optional(),
+  update_id: z.string().optional(),
+  update_datetime: z.string().optional(),
+  parent_type: z.string().optional(),
+  read_time: z.string().nullable().optional(),
+  watch_time: z.string().nullable().optional(),
+  short_description: z.string().optional(),
+  thumbnail_image: z.string().optional(),
+  link_to: z.string().nullable().optional(),
+  authors: z
+    .array(
+      z.object({
+        id: z.string(),
+        image: z.string().optional(),
+        nickname: z.string().optional(),
+      })
+    )
+    .optional(),
+});
+
+export type LatestRelease = z.infer<typeof LatestReleaseSchema>;
 
 // ─── API Parameters ──────────────────────────────────────────────────────────
 

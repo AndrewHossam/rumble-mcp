@@ -8,7 +8,7 @@ import type {
   CallDetails,
   LatestRelease,
 } from '../types/index.js';
-import { FundamentalCallSchema, TechnicalCallSchema } from '../types/index.js';
+import { FundamentalCallSchema, TechnicalCallSchema, LatestReleaseSchema } from '../types/index.js';
 import { randomBytes } from 'node:crypto';
 import { TokenManager } from './token-refresh.js';
 
@@ -22,6 +22,10 @@ const FundamentalCallsEnvelopeSchema = z.object({
 const TechnicalCallsEnvelopeSchema = z.object({
   objects: z.array(TechnicalCallSchema).default([]),
   pagination: z.object({ total: z.number() }).optional(),
+});
+
+const LatestReleasesEnvelopeSchema = z.object({
+  objects: z.array(LatestReleaseSchema).optional(),
 });
 
 // ─── Custom error types ────────────────────────────────────────────────────────
@@ -152,12 +156,21 @@ export class RumbleClient implements IRumbleClient {
   /**
    * Fetch a single-object endpoint (response envelope: `{ object: T }`).
    * Throws a descriptive error when the `object` field is absent.
+   *
+   * Pass `singularMarket: true` for endpoints that require `market=X`
+   * instead of the default array form `market[]=X`.
    */
   private async fetchSingle<T>(
     endpoint: string,
-    params?: Record<string, string | number | boolean>
+    params?: Record<string, string | number | boolean>,
+    options: { singularMarket?: boolean } = {}
   ): Promise<T> {
-    const response = await this.fetch<{ object: T }>(endpoint, params);
+    const response = await this.fetch<{ object: T }>(
+      endpoint,
+      params,
+      true,
+      options.singularMarket ?? false
+    );
     if (!response.object)
       throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
     return response.object;
@@ -207,33 +220,31 @@ export class RumbleClient implements IRumbleClient {
   }
 
   async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
-    // singularMarket=true: this endpoint requires `market=X` not `market[]=X`
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(
+    // singularMarket: true — this endpoint requires `market=X` not `market[]=X`
+    return this.fetchSingle<TrackRecord>(
       '/track-record/fundamental',
       { market: market || this.defaultMarket },
-      true,
-      true
+      { singularMarket: true }
     );
-    return raw.object;
   }
 
   async getTechnicalTrackRecord(market?: string): Promise<TrackRecord> {
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(
+    // singularMarket: true — this endpoint requires `market=X` not `market[]=X`
+    return this.fetchSingle<TrackRecord>(
       '/track-record/technical',
       { market: market || this.defaultMarket },
-      true,
-      true
+      { singularMarket: true }
     );
-    return raw.object;
   }
 
   async getLatestReleases(market?: string): Promise<LatestRelease[]> {
-    const response = await this.fetch<{ objects: LatestRelease[] }>('/latest-releases', {
+    const raw = await this.fetch<unknown>('/latest-releases', {
       fundamental_content_only: true,
       market: market || this.defaultMarket,
       expert_tool_table: true,
     });
-    return response.objects || [];
+    const response = LatestReleasesEnvelopeSchema.parse(raw);
+    return response.objects ?? [];
   }
 
   async getAssetList(listId: string): Promise<AssetList> {
