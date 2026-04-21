@@ -42,12 +42,13 @@ function makeOkResponse(body: unknown) {
   };
 }
 
-function makeErrorResponse(status: number, statusText: string) {
+function makeErrorResponse(status: number, statusText: string, body = '') {
   return {
     ok: false,
     status,
     statusText,
     json: () => Promise.resolve({}),
+    text: () => Promise.resolve(body),
   };
 }
 
@@ -133,6 +134,12 @@ describe('RumbleClient', () => {
       const calledUrl: string = mockFetch.mock.calls[0][0];
       expect(calledUrl).toContain('limit=3');
       expect(calledUrl).toContain('status=active');
+    });
+
+    it('throws when the response has no objects field (no silent default)', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({}));
+
+      await expect(client.getTechnicalCalls()).rejects.toThrow();
     });
   });
 
