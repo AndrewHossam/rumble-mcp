@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleCallDetailsTool } from '../tools/call-details.js';
+import { NotFoundError } from '../api/client.js';
 
 const createMockClient = () => ({
   getFundamentalCallDetails: vi.fn(),
@@ -77,8 +78,8 @@ describe('handleCallDetailsTool', () => {
     expect((result as any).type).toBe('technical');
   });
 
-  it('falls back to technical when fundamental fails and no type is specified', async () => {
-    mockClient.getFundamentalCallDetails.mockRejectedValue(new Error('Not found'));
+  it('falls back to technical when fundamental returns 404 and no type is specified', async () => {
+    mockClient.getFundamentalCallDetails.mockRejectedValue(new NotFoundError('test-call-1'));
     mockClient.getTechnicalCallDetails.mockResolvedValue(mockCallDetails);
 
     const result = await handleCallDetailsTool(mockClient as any, 'get_call_details', {
@@ -88,6 +89,17 @@ describe('handleCallDetailsTool', () => {
     expect(mockClient.getFundamentalCallDetails).toHaveBeenCalledWith('test-call-1');
     expect(mockClient.getTechnicalCallDetails).toHaveBeenCalledWith('test-call-1');
     expect((result as any).type).toBe('technical');
+  });
+
+  it('re-throws non-404 errors from fundamental without trying technical', async () => {
+    const serverError = new Error('API Error: 500 Internal Server Error');
+    mockClient.getFundamentalCallDetails.mockRejectedValue(serverError);
+
+    await expect(
+      handleCallDetailsTool(mockClient as any, 'get_call_details', { callId: 'test-call-1' })
+    ).rejects.toThrow('API Error: 500 Internal Server Error');
+
+    expect(mockClient.getTechnicalCallDetails).not.toHaveBeenCalled();
   });
 
   it('always returns basic info (id, type, title, status, asset)', async () => {

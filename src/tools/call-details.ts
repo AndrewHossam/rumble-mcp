@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RumbleClient } from '../api/client.js';
+import { NotFoundError } from '../api/client.js';
 import type {
   CallDetails,
   CallDetailsResponse,
@@ -212,11 +213,12 @@ export async function handleCallDetailsTool(
     details = await client.getTechnicalCallDetails(callId);
     callType = 'technical';
   } else {
-    // Try fundamental first, fall back to technical
+    // Try fundamental first; fall back to technical only when the call is not found
     try {
       details = await client.getFundamentalCallDetails(callId);
       callType = 'fundamental';
-    } catch {
+    } catch (err) {
+      if (!(err instanceof NotFoundError)) throw err;
       details = await client.getTechnicalCallDetails(callId);
       callType = 'technical';
     }
@@ -230,7 +232,7 @@ export async function handleCallDetailsTool(
     id: details.id,
     type: callType,
     title: details.title ?? details.asset?.symbol ?? callId,
-    status: details.status,
+    status: details.status ?? 'unknown',
     action,
     published_at: details.published_datetime,
     updated_at: details.updated_datetime,

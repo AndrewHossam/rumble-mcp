@@ -202,7 +202,7 @@ export interface UpdateItem {
 export interface CallDetails {
   id: string;
   title?: string; // e.g. "Buy OFH", "Hold QNBE"
-  status: string; // "open" | "closed"
+  status?: string; // "open" | "closed"
   // Fundamental: recommended_action; Technical: action
   recommended_action?: string;
   action?: string;
@@ -261,7 +261,7 @@ export interface CallDetailsResponse {
   id: string;
   type: string; // "fundamental" | "technical"
   title: string;
-  status: string;
+  status: string; // defaults to 'unknown' when API omits it
   action?: string; // unified field (action or recommended_action)
   published_at?: string;
   updated_at?: string;
