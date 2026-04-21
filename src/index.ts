@@ -119,7 +119,8 @@ async function main() {
   console.error('[rumble-mcp] Rumble MCP Server running on stdio');
 }
 
-main().catch(error => {
-  console.error('[rumble-mcp] Fatal error:', error);
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error('[rumble-mcp] Fatal error:', message);
   process.exit(1);
 });
