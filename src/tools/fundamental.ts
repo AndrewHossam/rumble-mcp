@@ -80,7 +80,7 @@ export async function handleFundamentalTool(
         releases: releases.map(r => ({
           title: r.title,
           summary: r.short_description,
-          update_at: r.update_datetime,
+          updated_at: r.update_datetime,
           parent_id: r.parent_id,
           type: r.parent_type,
           authors: mapReleaseAuthors(r.authors),

@@ -2,25 +2,30 @@ import type { ExpertInfo } from '../types/index.js';
 
 /**
  * Compute performance percentage: ((current - start) / start) * 100
- * Returns undefined when either price is missing/zero.
+ * Returns undefined only when an input is missing or the denominator is zero.
+ * Zero numerators (e.g., a stock at $0 current price) are preserved as -100.
  */
 export function computePerformance(
   startPrice: number | undefined,
   currentPrice: number | undefined
 ): number | undefined {
-  if (!currentPrice || !startPrice) return undefined;
+  if (startPrice === undefined || currentPrice === undefined) return undefined;
+  if (startPrice === 0) return undefined; // avoid division by zero
   return parseFloat((((currentPrice - startPrice) / startPrice) * 100).toFixed(2));
 }
 
 /**
  * Compute remaining return to target: ((target - current) / current) * 100
- * Returns undefined when either price is missing/zero.
+ * Returns undefined only when an input is missing or the denominator is zero.
+ * Zero numerators (e.g., a target price of $0) are preserved as -100.
  */
 export function computeRemainingReturn(
   currentPrice: number | undefined,
   targetPrice: number | null | undefined
 ): number | undefined {
-  if (!currentPrice || !targetPrice) return undefined;
+  if (currentPrice === undefined || targetPrice === undefined || targetPrice === null)
+    return undefined;
+  if (currentPrice === 0) return undefined; // avoid division by zero
   return parseFloat((((targetPrice - currentPrice) / currentPrice) * 100).toFixed(2));
 }
 

@@ -108,11 +108,10 @@ describe('RumbleClient', () => {
       expect(calledUrl).toContain('market%5B%5D=EGY');
     });
 
-    it('returns an empty array when the response has no objects field', async () => {
+    it('throws a ZodError when the response has no objects field', async () => {
       mockFetch.mockResolvedValue(makeOkResponse({}));
 
-      const result = await client.getFundamentalCalls();
-      expect(result).toEqual([]);
+      await expect(client.getFundamentalCalls()).rejects.toThrow();
     });
   });
 
@@ -222,12 +221,10 @@ describe('RumbleClient', () => {
       expect(result[1].parent_id).toBe('p2');
     });
 
-    it('returns an empty array when the response has no objects field', async () => {
+    it('throws a ZodError when the response has no objects field', async () => {
       mockFetch.mockResolvedValue(makeOkResponse({}));
 
-      const result = await client.getLatestReleases();
-
-      expect(result).toEqual([]);
+      await expect(client.getLatestReleases()).rejects.toThrow();
     });
 
     it('uses the default market when none is provided', async () => {
@@ -280,6 +277,31 @@ describe('RumbleClient', () => {
       expect(result).toEqual([
         { id: 'retried-call', asset: { id: 'a2', symbol: 'RETRY', name: 'Retry Co' } },
       ]);
+    });
+
+    it('preserves singularMarket=true on 401 retry so track-record endpoints keep market=EGY', async () => {
+      const localClient = new RumbleClient('test-token', 'EGY');
+      if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
+      const manager = mockManagerInstance;
+
+      manager.hasRefreshToken.mockReturnValue(true);
+
+      const mockTrackRecord = { avgCallsReturn: 0.5, callsCount: 10 };
+
+      // First call returns 401, retry returns 200
+      mockFetch
+        .mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized'))
+        .mockResolvedValueOnce(makeOkResponse({ object: mockTrackRecord }));
+
+      await localClient.getFundamentalTrackRecord('EGY');
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(manager.refresh).toHaveBeenCalled();
+
+      // Both the initial call and the retry must use singular market=EGY, not market%5B%5D=EGY
+      const retryUrl: string = mockFetch.mock.calls[1][0];
+      expect(retryUrl).toContain('market=EGY');
+      expect(retryUrl).not.toContain('market%5B%5D');
     });
   });
 

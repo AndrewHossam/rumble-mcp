@@ -168,7 +168,8 @@ function formatUpdates(details: CallDetails): FormattedUpdate[] {
     let summary = '';
     if (update.content?.document) {
       summary = extractRumbleBlockText(update.content);
-    } else if (update.the_story) {
+    }
+    if (!summary.trim() && update.the_story) {
       summary = extractContentfulText(update.the_story);
     }
 

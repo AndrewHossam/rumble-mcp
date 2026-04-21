@@ -16,8 +16,12 @@ describe('computePerformance', () => {
     expect(computePerformance(10, undefined)).toBeUndefined();
   });
 
-  it('returns undefined when startPrice is zero (avoid division by zero)', () => {
+  it('returns undefined when startPrice is zero (denominator — avoid division by zero)', () => {
     expect(computePerformance(0, 10)).toBeUndefined();
+  });
+
+  it('returns -100 when currentPrice is zero (numerator — zero is a valid price)', () => {
+    expect(computePerformance(100, 0)).toBe(-100);
   });
 
   it('returns 0 when start and current are equal', () => {
@@ -38,8 +42,12 @@ describe('computePerformance', () => {
 });
 
 describe('computeRemainingReturn', () => {
-  it('returns undefined when currentPrice is zero', () => {
+  it('returns undefined when currentPrice is zero (denominator — avoid division by zero)', () => {
     expect(computeRemainingReturn(0, 10)).toBeUndefined();
+  });
+
+  it('returns -100 when targetPrice is zero (numerator — zero is a valid target)', () => {
+    expect(computeRemainingReturn(10, 0)).toBe(-100);
   });
 
   it('returns undefined when targetPrice is undefined', () => {

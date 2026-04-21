@@ -252,7 +252,7 @@ describe('Tool Handlers', () => {
       const first = result.releases[0];
       expect(first.title).toBe('Buy QNBE Update');
       expect(first.summary).toBe('Strong buy signal confirmed');
-      expect(first.update_at).toBe('2026-04-20T10:00:00.000Z');
+      expect(first.updated_at).toBe('2026-04-20T10:00:00.000Z');
       expect(first.parent_id).toBe('call-123');
       expect(first.type).toBe('FUNDAMENTAL_CALL');
       expect(first.authors).toEqual(['Hosny']);

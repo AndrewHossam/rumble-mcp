@@ -201,6 +201,42 @@ describe('handleCallDetailsTool', () => {
       expect(result.updates[0].title).toBe('Update 1');
     });
 
+    it('falls back to the_story when content.document is present but yields empty text', async () => {
+      mockClient.getFundamentalCallDetails.mockResolvedValue({
+        ...mockCallDetails,
+        updates: [
+          {
+            title: 'Empty BlockNote Update',
+            datetime: '2024-03-01',
+            content: {
+              renderer: 'rumble' as const,
+              // document with no text content — all blocks empty
+              document: [{ type: 'paragraph', content: [] }],
+            },
+            the_story: {
+              content: [
+                {
+                  nodeType: 'paragraph',
+                  content: [{ nodeType: 'text', value: 'Fallback story text' }],
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      const result = (await handleCallDetailsTool(mockClient, 'get_call_details', {
+        callId: 'test-call-1',
+        type: 'fundamental',
+        sections: ['updates'],
+      })) as CallDetailsResponse;
+
+      expect(result.updates).toBeDefined();
+      expect(result.updates).toHaveLength(1);
+      if (!result.updates) throw new Error('updates should be defined');
+      expect(result.updates[0].summary).toBe('Fallback story text');
+    });
+
     it('extracts text from a contentful-format update (the_story field)', async () => {
       mockClient.getFundamentalCallDetails.mockResolvedValue({
         ...mockCallDetails,

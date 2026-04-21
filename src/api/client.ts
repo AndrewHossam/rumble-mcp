@@ -15,17 +15,17 @@ import { TokenManager } from './token-refresh.js';
 // ─── Response envelope schemas ────────────────────────────────────────────────
 
 const FundamentalCallsEnvelopeSchema = z.object({
-  objects: z.array(FundamentalCallSchema).default([]),
+  objects: z.array(FundamentalCallSchema),
   pagination: z.object({ total: z.number() }).optional(),
 });
 
 const TechnicalCallsEnvelopeSchema = z.object({
-  objects: z.array(TechnicalCallSchema).default([]),
+  objects: z.array(TechnicalCallSchema),
   pagination: z.object({ total: z.number() }).optional(),
 });
 
 const LatestReleasesEnvelopeSchema = z.object({
-  objects: z.array(LatestReleaseSchema).optional(),
+  objects: z.array(LatestReleaseSchema),
 });
 
 // ─── Custom error types ────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ export class RumbleClient implements IRumbleClient {
       try {
         await this.tokenManager.refresh();
         // Retry the request with new token (but don't retry again)
-        return this.fetch<T>(endpoint, params, false);
+        return this.fetch<T>(endpoint, params, false, singularMarket);
       } catch (refreshError) {
         throw new Error(`API Error: 401 Unauthorized (token refresh failed: ${refreshError})`);
       }
@@ -142,8 +142,11 @@ export class RumbleClient implements IRumbleClient {
       let body = '';
       try {
         body = await response.text();
-      } catch {
-        // ignore body read errors — best-effort only
+      } catch (bodyReadError) {
+        console.warn(
+          `[rumble-mcp] Failed to read error response body (status ${response.status}):`,
+          bodyReadError
+        );
       }
       throw new Error(
         `API Error: ${response.status} ${response.statusText}${body ? ` — ${body}` : ''}`
@@ -244,7 +247,7 @@ export class RumbleClient implements IRumbleClient {
       expert_tool_table: true,
     });
     const response = LatestReleasesEnvelopeSchema.parse(raw);
-    return response.objects ?? [];
+    return response.objects;
   }
 
   async getAssetList(listId: string): Promise<AssetList> {
