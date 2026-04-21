@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type {
   ListParams,
   FundamentalCall,
@@ -7,8 +8,31 @@ import type {
   CallDetails,
   LatestRelease,
 } from '../types/index.js';
+import { FundamentalCallSchema, TechnicalCallSchema } from '../types/index.js';
 import { randomBytes } from 'node:crypto';
 import { TokenManager } from './token-refresh.js';
+
+// ─── Response envelope schemas ────────────────────────────────────────────────
+
+const FundamentalCallsEnvelopeSchema = z.object({
+  objects: z.array(FundamentalCallSchema).default([]),
+  pagination: z.object({ total: z.number() }).optional(),
+});
+
+const TechnicalCallsEnvelopeSchema = z.object({
+  objects: z.array(TechnicalCallSchema).default([]),
+  pagination: z.object({ total: z.number() }).optional(),
+});
+
+// ─── Custom error types ────────────────────────────────────────────────────────
+
+export class NotFoundError extends Error {
+  readonly statusCode = 404;
+  constructor(resource: string) {
+    super(`Not found: ${resource}`);
+    this.name = 'NotFoundError';
+  }
+}
 
 const BASE_URL = 'https://therumble.app/api';
 
@@ -89,6 +113,9 @@ export class RumbleClient {
     }
 
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new NotFoundError(url.pathname);
+      }
       // Include body in error message to help diagnose server-side failures
       let body = '';
       try {
@@ -114,11 +141,9 @@ export class RumbleClient {
       expert_tool_table: true,
     };
 
-    const response = await this.fetch<{
-      objects: FundamentalCall[];
-      pagination?: { total: number };
-    }>('/fundamental-calls', queryParams);
-    return response.objects || [];
+    const raw = await this.fetch<unknown>('/fundamental-calls', queryParams);
+    const response = FundamentalCallsEnvelopeSchema.parse(raw);
+    return response.objects;
   }
 
   async getTechnicalCalls(params: ListParams = {}): Promise<TechnicalCall[]> {
@@ -130,11 +155,9 @@ export class RumbleClient {
       expert_tool_table: true,
     };
 
-    const response = await this.fetch<{ objects: TechnicalCall[]; pagination?: { total: number } }>(
-      '/technical-calls',
-      queryParams
-    );
-    return response.objects || [];
+    const raw = await this.fetch<unknown>('/technical-calls', queryParams);
+    const response = TechnicalCallsEnvelopeSchema.parse(raw);
+    return response.objects;
   }
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RumbleClient } from '../api/client.js';
+import { RumbleClient, NotFoundError } from '../api/client.js';
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -197,10 +197,10 @@ describe('RumbleClient', () => {
   });
 
   describe('Error handling', () => {
-    it('throws an error on a non-200 response', async () => {
+    it('throws a NotFoundError on a 404 response', async () => {
       mockFetch.mockResolvedValue(makeErrorResponse(404, 'Not Found'));
 
-      await expect(client.getFundamentalCalls()).rejects.toThrow('API Error: 404 Not Found');
+      await expect(client.getFundamentalCalls()).rejects.toThrow(NotFoundError);
     });
 
     it('throws an error on a 500 response', async () => {
