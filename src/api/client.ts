@@ -129,12 +129,16 @@ export class RumbleClient {
   }
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/fundamental-calls/${callId}`);
+    const response = await this.fetch<{ object: CallDetails }>(
+      `/fundamental-calls/${encodeURIComponent(callId)}`
+    );
     return response.object || response;
   }
 
   async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/technical-calls/${callId}`);
+    const response = await this.fetch<{ object: CallDetails }>(
+      `/technical-calls/${encodeURIComponent(callId)}`
+    );
     return response.object || response;
   }
 
@@ -164,7 +168,9 @@ export class RumbleClient {
 
   async getAssetList(listId: string): Promise<AssetList> {
     // Asset lists use /api/assets-list/{id} endpoint (singular)
-    const response = await this.fetch<{ object: AssetList }>(`/assets-list/${listId}`);
+    const response = await this.fetch<{ object: AssetList }>(
+      `/assets-list/${encodeURIComponent(listId)}`
+    );
     return response.object || (response as unknown as AssetList);
   }
 }
