@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isTokenExpired, TokenManager } from '../api/token-refresh.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { isTokenExpired, TokenManager, refreshFirebaseToken } from '../api/token-refresh.js';
 
 // Helper to create test JWTs with a given exp timestamp
 function createTestJWT(exp: number): string {
@@ -78,5 +78,182 @@ describe('TokenManager', () => {
   it('getCurrentToken() returns the token without performing a refresh check', () => {
     const manager = new TokenManager('current-token', 'refresh-token');
     expect(manager.getCurrentToken()).toBe('current-token');
+  });
+});
+
+// ─── refreshFirebaseToken ──────────────────────────────────────────────────────
+
+describe('refreshFirebaseToken', () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch);
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns new id token and refresh token on a successful 200 response', async () => {
+    const responseBody = {
+      id_token: 'new-id-token',
+      access_token: 'new-id-token',
+      refresh_token: 'new-refresh-token',
+      expires_in: '3600',
+      token_type: 'Bearer',
+      user_id: 'user123',
+      project_id: 'therumble-aec18',
+    };
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve(responseBody),
+    });
+
+    const result = await refreshFirebaseToken('old-refresh-token', 'test-api-key');
+
+    expect(result.idToken).toBe('new-id-token');
+    expect(result.refreshToken).toBe('new-refresh-token');
+    expect(result.expiresIn).toBe(3600);
+  });
+
+  it('throws an error with the API error message on a 400 response', async () => {
+    const errorBody = {
+      error: {
+        code: 400,
+        message: 'TOKEN_EXPIRED',
+        errors: [{ message: 'TOKEN_EXPIRED', domain: 'googleapis.com', reason: 'invalid' }],
+      },
+    };
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: () => Promise.resolve(errorBody),
+    });
+
+    await expect(refreshFirebaseToken('bad-token', 'test-api-key')).rejects.toThrow(
+      'Token refresh failed: TOKEN_EXPIRED'
+    );
+  });
+
+  it('propagates a network error when fetch itself rejects', async () => {
+    mockFetch.mockRejectedValue(new Error('Network failure'));
+
+    await expect(refreshFirebaseToken('any-token', 'test-api-key')).rejects.toThrow(
+      'Network failure'
+    );
+  });
+
+  it('posts the refresh_token in the request body', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () =>
+        Promise.resolve({
+          id_token: 'tok',
+          access_token: 'tok',
+          refresh_token: 'r',
+          expires_in: '3600',
+          token_type: 'Bearer',
+          user_id: 'u',
+          project_id: 'p',
+        }),
+    });
+
+    await refreshFirebaseToken('my-refresh', 'test-api-key');
+
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('securetoken.googleapis.com');
+    expect(url).toContain('test-api-key');
+    expect(options.method).toBe('POST');
+    expect(options.body).toContain('my-refresh');
+  });
+});
+
+// ─── TokenManager.refresh() and auto-refresh ──────────────────────────────────
+
+describe('TokenManager with fetch mock', () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch);
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeTokenResponse(idToken: string, refreshToken: string) {
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () =>
+        Promise.resolve({
+          id_token: idToken,
+          access_token: idToken,
+          refresh_token: refreshToken,
+          expires_in: '3600',
+          token_type: 'Bearer',
+          user_id: 'u',
+          project_id: 'p',
+        }),
+    };
+  }
+
+  it('refresh() updates the stored id token and refresh token', async () => {
+    mockFetch.mockResolvedValue(makeTokenResponse('refreshed-id-token', 'rotated-refresh-token'));
+
+    const manager = new TokenManager('old-id-token', 'old-refresh-token', 'test-api-key');
+    const newToken = await manager.refresh();
+
+    expect(newToken).toBe('refreshed-id-token');
+    expect(manager.getCurrentToken()).toBe('refreshed-id-token');
+  });
+
+  it('refresh() calls the onTokenRefresh callback with the new token', async () => {
+    mockFetch.mockResolvedValue(makeTokenResponse('callback-token', 'new-refresh'));
+
+    const onRefresh = vi.fn();
+    const manager = new TokenManager('old-token', 'refresh-tok', 'test-api-key', onRefresh);
+    await manager.refresh();
+
+    expect(onRefresh).toHaveBeenCalledOnce();
+    expect(onRefresh).toHaveBeenCalledWith('callback-token');
+  });
+
+  it('refresh() throws when no refresh token is available', async () => {
+    const manager = new TokenManager('id-token');
+
+    await expect(manager.refresh()).rejects.toThrow('No refresh token available');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('getValidToken() auto-refreshes when the token is expired', async () => {
+    mockFetch.mockResolvedValue(makeTokenResponse('auto-refreshed-token', 'new-refresh'));
+
+    const expiredToken = createTestJWT(Math.floor(Date.now() / 1000) - 3600);
+    const manager = new TokenManager(expiredToken, 'refresh-token', 'test-api-key');
+
+    const token = await manager.getValidToken();
+
+    expect(token).toBe('auto-refreshed-token');
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it('getValidToken() does not refresh when the token is still valid', async () => {
+    const futureExp = Math.floor(Date.now() / 1000) + 3600;
+    const validToken = createTestJWT(futureExp);
+    const manager = new TokenManager(validToken, 'refresh-token', 'test-api-key');
+
+    const token = await manager.getValidToken();
+
+    expect(token).toBe(validToken);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
