@@ -34,9 +34,12 @@ async function runTest() {
         if (responseData.includes(`"id":${id}`)) {
           server.stdout.removeListener('data', onData);
           try {
-            const response = JSON.parse(
-              responseData.split('\n').filter(l => l.includes(`"id":${id}`))[0]
-            );
+            const matchedLine = responseData.split('\n').find(l => l.includes(`"id":${id}`));
+            if (!matchedLine) {
+              reject(new Error(`No response line found for tool ${name} (id=${id})`));
+              return;
+            }
+            const response = JSON.parse(matchedLine);
             if (response.error) {
               reject(new Error(`Tool ${name} failed: ${JSON.stringify(response.error)}`));
             } else {
