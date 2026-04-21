@@ -184,7 +184,7 @@ Most MCP-compatible clients follow a similar pattern:
 | `list_known_portfolios` | Portfolios | List all known portfolio aliases |
 
 ### `get_call_details` Usage
-*   **Parameters**: `callId` (required), `type` (optional: fundamental/technical), `sections` (optional: `["story", "performance", "updates", "news"]`)
+*   **Parameters**: `callId` (required), `type` (optional: fundamental/technical), `sections` (optional: `["story", "performance", "updates"]`)
 *   **Example**:
     ```json
     {"callId": "call_id_here", "sections": ["performance", "updates"]}
@@ -211,8 +211,10 @@ Once configured, ask your AI assistant:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `RUMBLE_FIREBASE_TOKEN` | ✅ Yes | Your Firebase ID token from therumble.app |
-| `RUMBLE_REFRESH_TOKEN` | ✅ Yes | Your Firebase refresh token for auto-renewal |
+| `RUMBLE_REFRESH_TOKEN` | Recommended | Firebase refresh token for automatic token renewal |
 | `RUMBLE_MARKET` | No | Market code (default: `EGY` for Egypt) |
+| `RUMBLE_DEVICE_ID` | No | Stable device ID for request headers (auto-generated if omitted) |
+| `RUMBLE_SESSION_ID` | No | Stable session ID for request headers (auto-generated if omitted) |
 
 ---
 
