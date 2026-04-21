@@ -88,14 +88,15 @@ export class RumbleClient implements IRumbleClient {
   private async fetch<T>(
     endpoint: string,
     params?: Record<string, string | number | boolean>,
-    retryOnAuth: boolean = true
+    retryOnAuth: boolean = true,
+    singularMarket: boolean = false
   ): Promise<T> {
     const url = new URL(`${BASE_URL}${endpoint}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          if (key === 'market') {
+          if (key === 'market' && !singularMarket) {
             url.searchParams.append('market[]', String(value));
           } else {
             url.searchParams.append(key, String(value));
@@ -148,6 +149,20 @@ export class RumbleClient implements IRumbleClient {
     return response.json() as Promise<T>;
   }
 
+  /**
+   * Fetch a single-object endpoint (response envelope: `{ object: T }`).
+   * Throws a descriptive error when the `object` field is absent.
+   */
+  private async fetchSingle<T>(
+    endpoint: string,
+    params?: Record<string, string | number | boolean>
+  ): Promise<T> {
+    const response = await this.fetch<{ object: T }>(endpoint, params);
+    if (!response.object)
+      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
+    return response.object;
+  }
+
   async getFundamentalCalls(params: ListParams = {}): Promise<FundamentalCall[]> {
     const queryParams = {
       list_type: 'list-with-content',
@@ -179,34 +194,36 @@ export class RumbleClient implements IRumbleClient {
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
     // expert_tool_table=true is required to get the full detail payload
-    const endpoint = `/fundamental-calls/${callId}?expert_tool_table=true`;
-    const response = await this.fetch<{ object: CallDetails }>(endpoint);
-    if (!response.object)
-      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
-    return response.object;
+    return this.fetchSingle<CallDetails>(`/fundamental-calls/${callId}`, {
+      expert_tool_table: true,
+    });
   }
 
   async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
     // expert_tool_table=true is CRITICAL — without it the server returns 500
-    const endpoint = `/technical-calls/${callId}?expert_tool_table=true`;
-    const response = await this.fetch<{ object: CallDetails }>(endpoint);
-    if (!response.object)
-      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
-    return response.object;
+    return this.fetchSingle<CallDetails>(`/technical-calls/${callId}`, {
+      expert_tool_table: true,
+    });
   }
 
   async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
-    // The track-record endpoints require a singular `market` query param.
-    // The shared fetch() helper converts `market` keys to `market[]`, which
-    // causes a 500 on this endpoint. Build the query string directly instead.
-    const endpoint = `/track-record/fundamental?market=${encodeURIComponent(market || this.defaultMarket)}`;
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
+    // singularMarket=true: this endpoint requires `market=X` not `market[]=X`
+    const raw = await this.fetch<{ type: string; object: TrackRecord }>(
+      '/track-record/fundamental',
+      { market: market || this.defaultMarket },
+      true,
+      true
+    );
     return raw.object;
   }
 
   async getTechnicalTrackRecord(market?: string): Promise<TrackRecord> {
-    const endpoint = `/track-record/technical?market=${encodeURIComponent(market || this.defaultMarket)}`;
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
+    const raw = await this.fetch<{ type: string; object: TrackRecord }>(
+      '/track-record/technical',
+      { market: market || this.defaultMarket },
+      true,
+      true
+    );
     return raw.object;
   }
 
@@ -221,10 +238,6 @@ export class RumbleClient implements IRumbleClient {
 
   async getAssetList(listId: string): Promise<AssetList> {
     // Asset lists use /api/assets-list/{id} endpoint (singular)
-    const endpoint = `/assets-list/${listId}`;
-    const response = await this.fetch<{ object: AssetList }>(endpoint);
-    if (!response.object)
-      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
-    return response.object;
+    return this.fetchSingle<AssetList>(`/assets-list/${listId}`);
   }
 }
