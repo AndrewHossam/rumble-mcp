@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import type { IRumbleClient } from '../api/client.js';
-import { computePerformance, computeRemainingReturn, mapAnalysts } from './_shared.js';
+import {
+  computePerformance,
+  computeRemainingReturn,
+  mapAnalysts,
+  mapReleaseAuthors,
+} from './_shared.js';
 
 export const fundamentalToolSchemas = {
   get_fundamental_calls: {
@@ -78,7 +83,7 @@ export async function handleFundamentalTool(
           update_at: r.update_datetime,
           parent_id: r.parent_id,
           type: r.parent_type,
-          authors: r.authors?.map(a => a.nickname),
+          authors: mapReleaseAuthors(r.authors),
           thumbnail: r.thumbnail_image,
         })),
       };

@@ -4,6 +4,7 @@ import {
   computeRemainingReturn,
   buildBuyRange,
   mapAnalysts,
+  mapReleaseAuthors,
 } from '../tools/_shared.js';
 
 describe('computePerformance', () => {
@@ -116,5 +117,36 @@ describe('mapAnalysts', () => {
         { id: 'e2', name: 'Bob' },
       ])
     ).toEqual(['Ali', 'Bob']);
+  });
+});
+
+describe('mapReleaseAuthors', () => {
+  it('returns undefined when authors is undefined', () => {
+    expect(mapReleaseAuthors(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when no authors have a nickname', () => {
+    expect(mapReleaseAuthors([{ nickname: undefined }, {}])).toBeUndefined();
+  });
+
+  it('returns undefined when authors array is empty', () => {
+    expect(mapReleaseAuthors([])).toBeUndefined();
+  });
+
+  it('returns only named authors when some nicknames are missing', () => {
+    expect(
+      mapReleaseAuthors([{ nickname: 'Hosny' }, { nickname: undefined }, { nickname: 'Ali' }])
+    ).toEqual(['Hosny', 'Ali']);
+  });
+
+  it('returns all nicknames when every author has one', () => {
+    expect(mapReleaseAuthors([{ nickname: 'Hosny' }, { nickname: 'Ali' }])).toEqual([
+      'Hosny',
+      'Ali',
+    ]);
+  });
+
+  it('filters out empty-string nicknames', () => {
+    expect(mapReleaseAuthors([{ nickname: '' }, { nickname: 'Hosny' }])).toEqual(['Hosny']);
   });
 });

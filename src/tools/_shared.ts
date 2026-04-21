@@ -32,6 +32,20 @@ export function mapAnalysts(experts: ExpertInfo[] | undefined): (string | undefi
 }
 
 /**
+ * Map a release authors array to nicknames, filtering out entries with no nickname.
+ * Returns undefined when the input is undefined or no authors have a nickname.
+ */
+export function mapReleaseAuthors(
+  authors: Array<{ nickname?: string }> | undefined
+): string[] | undefined {
+  if (!authors) return undefined;
+  const named = authors
+    .map(a => a.nickname)
+    .filter((n): n is string => typeof n === 'string' && n.length > 0);
+  return named.length > 0 ? named : undefined;
+}
+
+/**
  * Build a buy-range object from start/end values.
  * Returns undefined when either bound is null or undefined.
  */
