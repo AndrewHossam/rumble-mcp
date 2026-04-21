@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { RumbleClient } from '../api/client.js';
+import type { IRumbleClient } from '../api/client.js';
 import {
   computePerformance,
   computeRemainingReturn,
@@ -31,7 +31,7 @@ export const technicalToolSchemas = {
 };
 
 export async function handleTechnicalTool(
-  client: RumbleClient,
+  client: IRumbleClient,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {

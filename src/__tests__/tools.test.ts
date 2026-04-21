@@ -6,18 +6,7 @@ import { technicalToolSchemas, handleTechnicalTool } from '../tools/technical.js
 import { assetToolSchemas, handleAssetTool, KNOWN_LISTS } from '../tools/assets.js';
 import { callDetailsToolSchemas } from '../tools/call-details.js';
 import { TrackRecordSchema } from '../types/index.js';
-
-// Mock RumbleClient
-const createMockClient = () => ({
-  getFundamentalCalls: vi.fn(),
-  getTechnicalCalls: vi.fn(),
-  getFundamentalCallDetails: vi.fn(),
-  getTechnicalCallDetails: vi.fn(),
-  getFundamentalTrackRecord: vi.fn(),
-  getTechnicalTrackRecord: vi.fn(),
-  getLatestReleases: vi.fn(),
-  getAssetList: vi.fn(),
-});
+import { createMockClient, type MockRumbleClient } from './_helpers.js';
 
 describe('Tool Schema Validation', () => {
   describe('Fundamental Tool Schemas', () => {
@@ -128,7 +117,7 @@ describe('Tool Schema Validation', () => {
 });
 
 describe('Tool Handlers', () => {
-  let mockClient: ReturnType<typeof createMockClient>;
+  let mockClient: MockRumbleClient;
 
   beforeEach(() => {
     mockClient = createMockClient();
@@ -168,9 +157,9 @@ describe('Tool Handlers', () => {
       ];
       mockClient.getFundamentalCalls.mockResolvedValue(mockCalls);
 
-      const result = (await handleFundamentalTool(mockClient as any, 'get_fundamental_calls', {
+      const result = (await handleFundamentalTool(mockClient, 'get_fundamental_calls', {
         limit: 5,
-      })) as any;
+      })) as { count: number; calls: Record<string, unknown>[] };
 
       expect(mockClient.getFundamentalCalls).toHaveBeenCalledWith({
         limit: 5,
@@ -207,11 +196,7 @@ describe('Tool Handlers', () => {
       };
       mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      const result = await handleFundamentalTool(
-        mockClient as any,
-        'get_fundamental_track_record',
-        {}
-      );
+      const result = await handleFundamentalTool(mockClient, 'get_fundamental_track_record', {});
 
       expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('EGY');
       expect(result).toEqual(mockTrackRecord);
@@ -229,7 +214,7 @@ describe('Tool Handlers', () => {
       };
       mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      await handleFundamentalTool(mockClient as any, 'get_fundamental_track_record', {
+      await handleFundamentalTool(mockClient, 'get_fundamental_track_record', {
         market: 'USA',
       });
 
@@ -237,7 +222,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should throw for unknown tool', async () => {
-      await expect(handleFundamentalTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleFundamentalTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown fundamental tool: unknown_tool'
       );
     });
@@ -277,11 +262,10 @@ describe('Tool Handlers', () => {
       ];
       mockClient.getTechnicalCalls.mockResolvedValue(mockCalls);
 
-      const result = (await handleTechnicalTool(
-        mockClient as any,
-        'get_technical_calls',
-        {}
-      )) as any;
+      const result = (await handleTechnicalTool(mockClient, 'get_technical_calls', {})) as {
+        count: number;
+        calls: Record<string, unknown>[];
+      };
 
       expect(result.count).toBe(1);
       const call = result.calls[0];
@@ -312,7 +296,7 @@ describe('Tool Handlers', () => {
       };
       mockClient.getTechnicalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      const result = await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {});
+      const result = await handleTechnicalTool(mockClient, 'get_technical_track_record', {});
 
       expect(mockClient.getTechnicalTrackRecord).toHaveBeenCalledWith('EGY');
       expect(result).toEqual(mockTrackRecord);
@@ -325,7 +309,7 @@ describe('Tool Handlers', () => {
     it('should handle get_technical_track_record with a custom market', async () => {
       mockClient.getTechnicalTrackRecord.mockResolvedValue({ callsCount: 5 });
 
-      await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {
+      await handleTechnicalTool(mockClient, 'get_technical_track_record', {
         market: 'USA',
       });
 
@@ -333,7 +317,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should throw for unknown tool', async () => {
-      await expect(handleTechnicalTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleTechnicalTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown technical tool: unknown_tool'
       );
     });
@@ -344,37 +328,40 @@ describe('Tool Handlers', () => {
       const mockAssetList = { id: KNOWN_LISTS['rfp-egx'], name: 'RFP' };
       mockClient.getAssetList.mockResolvedValue(mockAssetList);
 
-      await handleAssetTool(mockClient as any, 'get_asset_list', { listId: 'rfp-egx' });
+      await handleAssetTool(mockClient, 'get_asset_list', { listId: 'rfp-egx' });
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rfp-egx']);
     });
 
     it('should use raw ID if not an alias', async () => {
       const rawId = 'customListId123';
-      mockClient.getAssetList.mockResolvedValue({ id: rawId });
+      mockClient.getAssetList.mockResolvedValue({ id: rawId, name: 'Custom List' });
 
-      await handleAssetTool(mockClient as any, 'get_asset_list', { listId: rawId });
+      await handleAssetTool(mockClient, 'get_asset_list', { listId: rawId });
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(rawId);
     });
 
     it('should handle list_known_portfolios', async () => {
-      const result = await handleAssetTool(mockClient as any, 'list_known_portfolios', {});
+      const result = await handleAssetTool(mockClient, 'list_known_portfolios', {});
 
       expect(result).toHaveProperty('portfolios');
-      expect((result as any).portfolios).toHaveLength(3);
+      expect((result as { portfolios: unknown[] }).portfolios).toHaveLength(3);
     });
 
     it('should handle get_rfp_portfolio', async () => {
-      mockClient.getAssetList.mockResolvedValue({ id: KNOWN_LISTS['rfp-egx'] });
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['rfp-egx'],
+        name: 'Rumble Fundamental Portfolio',
+      });
 
-      await handleAssetTool(mockClient as any, 'get_rfp_portfolio', {});
+      await handleAssetTool(mockClient, 'get_rfp_portfolio', {});
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rfp-egx']);
     });
 
     it('should throw for unknown tool', async () => {
-      await expect(handleAssetTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleAssetTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown asset tool: unknown_tool'
       );
     });

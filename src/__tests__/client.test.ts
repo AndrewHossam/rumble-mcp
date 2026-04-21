@@ -23,7 +23,7 @@ vi.mock('../api/token-refresh.js', () => {
 
     constructor() {
       // Expose the latest instance for test assertions
-      mockManagerInstance = this as any;
+      mockManagerInstance = this as typeof mockManagerInstance;
     }
   }
 
@@ -216,7 +216,8 @@ describe('RumbleClient', () => {
     it('retries with a refreshed token on a 401 response when a refresh token is available', async () => {
       // Each new RumbleClient instantiation sets mockManagerInstance
       const localClient = new RumbleClient('test-token', 'EGY');
-      const manager = mockManagerInstance!;
+      if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
+      const manager = mockManagerInstance;
 
       // Simulate having a refresh token
       manager.hasRefreshToken.mockReturnValue(true);
@@ -308,7 +309,7 @@ describe('RumbleClient', () => {
 
       // Should unwrap response.object, not return the envelope
       expect(result).toEqual(mockDetail);
-      expect((result as any).object).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).object).toBeUndefined();
     });
   });
 });

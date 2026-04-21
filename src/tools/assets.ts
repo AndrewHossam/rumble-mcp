@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { RumbleClient } from '../api/client.js';
+import type { IRumbleClient } from '../api/client.js';
 
 // Known asset list IDs (verified from Rumble API)
 export const KNOWN_LISTS = {
@@ -36,7 +36,7 @@ export const assetToolSchemas = {
 };
 
 export async function handleAssetTool(
-  client: RumbleClient,
+  client: IRumbleClient,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {

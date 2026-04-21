@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { RumbleClient } from '../api/client.js';
+import type { IRumbleClient } from '../api/client.js';
 import { computePerformance, computeRemainingReturn, mapAnalysts } from './_shared.js';
 
 export const fundamentalToolSchemas = {
@@ -32,7 +32,7 @@ export const fundamentalToolSchemas = {
 };
 
 export async function handleFundamentalTool(
-  client: RumbleClient,
+  client: IRumbleClient,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {

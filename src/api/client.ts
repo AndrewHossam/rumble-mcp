@@ -48,7 +48,24 @@ function generateId(length: number = 21): string {
   return result;
 }
 
-export class RumbleClient {
+/**
+ * Public interface for the Rumble API client.
+ * Tool handlers and tests should depend on this interface rather than
+ * the concrete `RumbleClient` class so that mocks can satisfy the type
+ * without needing to replicate private fields.
+ */
+export interface IRumbleClient {
+  getFundamentalCalls(params?: ListParams): Promise<FundamentalCall[]>;
+  getTechnicalCalls(params?: ListParams): Promise<TechnicalCall[]>;
+  getFundamentalCallDetails(callId: string): Promise<CallDetails>;
+  getTechnicalCallDetails(callId: string): Promise<CallDetails>;
+  getFundamentalTrackRecord(market?: string): Promise<TrackRecord>;
+  getTechnicalTrackRecord(market?: string): Promise<TrackRecord>;
+  getLatestReleases(market?: string): Promise<LatestRelease[]>;
+  getAssetList(listId: string): Promise<AssetList>;
+}
+
+export class RumbleClient implements IRumbleClient {
   private tokenManager: TokenManager;
   private defaultMarket: string;
   private deviceId: string;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { RumbleClient } from '../api/client.js';
+import type { IRumbleClient } from '../api/client.js';
 import { NotFoundError } from '../api/client.js';
 import type {
   CallDetails,
@@ -185,7 +185,7 @@ function formatUpdates(details: CallDetails): FormattedUpdate[] {
 }
 
 export async function handleCallDetailsTool(
-  client: RumbleClient,
+  client: IRumbleClient,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
