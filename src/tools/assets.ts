@@ -44,7 +44,10 @@ export async function handleAssetTool(
     case 'get_asset_list': {
       const params = assetToolSchemas.get_asset_list.inputSchema.parse(args);
       // Resolve alias to ID if provided
-      const listId = KNOWN_LISTS[params.listId as keyof typeof KNOWN_LISTS] || params.listId;
+      const listId =
+        params.listId in KNOWN_LISTS
+          ? KNOWN_LISTS[params.listId as keyof typeof KNOWN_LISTS]
+          : params.listId;
       return await client.getAssetList(listId);
     }
 

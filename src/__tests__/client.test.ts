@@ -74,7 +74,10 @@ describe('RumbleClient', () => {
 
   describe('getFundamentalCalls', () => {
     it('calls the correct endpoint and returns the objects array', async () => {
-      const mockCalls = [{ id: 'call1', ticker: 'TEST' }];
+      // Use real API shape: no root-level ticker, asset is nested
+      const mockCalls = [
+        { id: 'call1', asset: { id: 'a1', symbol: 'TEST', name: 'Test Co' }, status: 'open' },
+      ];
       mockFetch.mockResolvedValue(makeOkResponse({ objects: mockCalls }));
 
       const result = await client.getFundamentalCalls();
@@ -219,15 +222,19 @@ describe('RumbleClient', () => {
       manager.hasRefreshToken.mockReturnValue(true);
 
       // First call returns 401, second (retry) call returns 200
-      mockFetch
-        .mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized'))
-        .mockResolvedValueOnce(makeOkResponse({ objects: [{ id: 'retried-call' }] }));
+      mockFetch.mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized')).mockResolvedValueOnce(
+        makeOkResponse({
+          objects: [{ id: 'retried-call', asset: { id: 'a2', symbol: 'RETRY', name: 'Retry Co' } }],
+        })
+      );
 
       const result = await localClient.getFundamentalCalls();
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(manager.refresh).toHaveBeenCalled();
-      expect(result).toEqual([{ id: 'retried-call' }]);
+      expect(result).toEqual([
+        { id: 'retried-call', asset: { id: 'a2', symbol: 'RETRY', name: 'Retry Co' } },
+      ]);
     });
   });
 
@@ -250,6 +257,58 @@ describe('RumbleClient', () => {
       expect(calledHeaders['x-rumble-device-id']).toBeDefined();
       expect(calledHeaders['x-rumble-session-id']).toBeDefined();
       expect(calledHeaders['x-rumble-request-id']).toBeDefined();
+    });
+  });
+
+  // ─── Critical regression tests for the 500 fix ─────────────────────────────
+  describe('Call detail endpoints include expert_tool_table=true', () => {
+    it('getTechnicalCallDetails MUST include expert_tool_table=true (missing param causes 500)', async () => {
+      const mockDetail = {
+        id: 'tech-1',
+        status: 'open',
+        action: 'buy',
+        asset: { id: 'a1', symbol: 'OFH', name: 'Orascom' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      await client.getTechnicalCallDetails('tech-1');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/technical-calls/tech-1');
+      // This is the critical fix: without expert_tool_table=true the API returns 500
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('getFundamentalCallDetails MUST include expert_tool_table=true', async () => {
+      const mockDetail = {
+        id: 'fund-1',
+        status: 'open',
+        recommended_action: 'buy',
+        asset: { id: 'a2', symbol: 'QNBE', name: 'QNB' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      await client.getFundamentalCallDetails('fund-1');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/fundamental-calls/fund-1');
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('getTechnicalCallDetails unwraps the object envelope', async () => {
+      const mockDetail = {
+        id: 'tech-2',
+        status: 'open',
+        action: 'sell',
+        asset: { id: 'a3', symbol: 'EFIH', name: 'EFG' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      const result = await client.getTechnicalCallDetails('tech-2');
+
+      // Should unwrap response.object, not return the envelope
+      expect(result).toEqual(mockDetail);
+      expect((result as any).object).toBeUndefined();
     });
   });
 });

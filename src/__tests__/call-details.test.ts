@@ -23,7 +23,7 @@ const mockCallDetails = {
     ],
   },
   start_price: 100,
-  current_price: 120,
+  price: 120, // Replaces current_price to match real API
   target_price: 150,
   performance: 0.2,
   remaining_return: 0.25,
@@ -32,22 +32,13 @@ const mockCallDetails = {
       title: 'Update 1',
       datetime: '2024-01-10',
       content: {
-        content: [
+        document: [
           {
-            nodeType: 'paragraph',
-            content: [{ nodeType: 'text', value: 'Update text' }],
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Update text' }],
           },
         ],
       },
-    },
-  ],
-  news: [
-    {
-      title: 'News 1',
-      datetime: '2024-01-12',
-      source: 'Reuters',
-      url: 'https://example.com',
-      summary: 'News summary',
     },
   ],
 };
@@ -142,7 +133,6 @@ describe('handleCallDetailsTool', () => {
       expect(result.story.text).toContain('Test story text');
       expect(result.performance).toBeUndefined();
       expect(result.updates).toBeUndefined();
-      expect(result.news).toBeUndefined();
     });
 
     it('returns the performance section when requested', async () => {
@@ -172,20 +162,6 @@ describe('handleCallDetailsTool', () => {
       expect(result.story).toBeUndefined();
     });
 
-    it('returns the news section when requested', async () => {
-      const result = (await handleCallDetailsTool(mockClient as any, 'get_call_details', {
-        callId: 'test-call-1',
-        type: 'fundamental',
-        sections: ['news'],
-      })) as any;
-
-      expect(result.news).toBeDefined();
-      expect(result.news).toHaveLength(1);
-      expect(result.news[0].title).toBe('News 1');
-      expect(result.news[0].source).toBe('Reuters');
-      expect(result.story).toBeUndefined();
-    });
-
     it('returns all sections when no sections param is provided', async () => {
       const result = (await handleCallDetailsTool(mockClient as any, 'get_call_details', {
         callId: 'test-call-1',
@@ -195,7 +171,6 @@ describe('handleCallDetailsTool', () => {
       expect(result.story).toBeDefined();
       expect(result.performance).toBeDefined();
       expect(result.updates).toBeDefined();
-      expect(result.news).toBeDefined();
     });
   });
 });

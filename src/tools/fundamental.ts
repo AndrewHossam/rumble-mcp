@@ -17,7 +17,7 @@ export const fundamentalToolSchemas = {
   },
   get_fundamental_track_record: {
     description:
-      'Get the overall track record for fundamental calls, including win rate, average return, and alpha vs benchmark.',
+      'Get the overall track record for fundamental calls, including average return, alpha vs benchmark, and hit ratio.',
     inputSchema: z.object({
       market: z.string().default('EGY').describe('Market code (default: EGY for Egypt)'),
     }),
@@ -41,18 +41,42 @@ export async function handleFundamentalTool(
       const calls = await client.getFundamentalCalls(params);
       return {
         count: calls.length,
-        calls: calls.map(call => ({
-          id: call.id,
-          ticker: call.ticker,
-          company: call.company_name,
-          rating: call.rating,
-          target_price: call.target_price,
-          current_price: call.current_price,
-          remaining_return: call.remaining_return,
-          performance: call.performance,
-          analysts: call.analysts,
-          updated_at: call.updated_at,
-        })),
+        calls: calls.map(call => {
+          // Calculate performance vs start_price using current live price
+          const currentPrice = call.price;
+          const startPrice = call.start_price;
+          const performance =
+            currentPrice && startPrice
+              ? ((currentPrice - startPrice) / startPrice) * 100
+              : undefined;
+
+          // Calculate remaining return to target
+          const targetPrice = call.target_price;
+          const remainingReturn =
+            currentPrice && targetPrice
+              ? ((targetPrice - currentPrice) / currentPrice) * 100
+              : undefined;
+
+          return {
+            id: call.id,
+            ticker: call.asset?.symbol,
+            company: call.asset?.name,
+            industry: call.asset?.industry,
+            recommendation: call.recommended_action,
+            status: call.status,
+            start_price: call.start_price,
+            target_price: call.target_price,
+            current_price: call.price,
+            performance_pct:
+              performance !== undefined ? parseFloat(performance.toFixed(2)) : undefined,
+            remaining_return_pct:
+              remainingReturn !== undefined ? parseFloat(remainingReturn.toFixed(2)) : undefined,
+            updated_at: call.updated_datetime,
+            published_at: call.published_datetime,
+            analysts: call.experts?.map(e => e.nickname ?? e.name),
+            index: call.index,
+          };
+        }),
       };
     }
 
@@ -63,7 +87,19 @@ export async function handleFundamentalTool(
 
     case 'get_latest_releases': {
       const params = fundamentalToolSchemas.get_latest_releases.inputSchema.parse(args);
-      return await client.getLatestReleases(params.market);
+      const releases = await client.getLatestReleases(params.market);
+      return {
+        count: releases.length,
+        releases: releases.map(r => ({
+          title: r.title,
+          summary: r.short_description,
+          update_at: r.update_datetime,
+          parent_id: r.parent_id,
+          type: r.parent_type,
+          authors: r.authors?.map(a => a.nickname),
+          thumbnail: r.thumbnail_image,
+        })),
+      };
     }
 
     default:

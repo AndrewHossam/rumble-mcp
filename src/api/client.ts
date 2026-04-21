@@ -7,7 +7,7 @@ import type {
   CallDetails,
   LatestRelease,
 } from '../types/index.js';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { TokenManager } from './token-refresh.js';
 
 const BASE_URL = 'https://therumble.app/api';
@@ -89,7 +89,16 @@ export class RumbleClient {
     }
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      // Include body in error message to help diagnose server-side failures
+      let body = '';
+      try {
+        body = await response.text();
+      } catch {
+        // ignore body read errors — best-effort only
+      }
+      throw new Error(
+        `API Error: ${response.status} ${response.statusText}${body ? ` — ${body}` : ''}`
+      );
     }
 
     return response.json() as Promise<T>;
@@ -129,13 +138,21 @@ export class RumbleClient {
   }
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/fundamental-calls/${callId}`);
-    return response.object || response;
+    // expert_tool_table=true is required to get the full detail payload
+    const endpoint = `/fundamental-calls/${callId}?expert_tool_table=true`;
+    const response = await this.fetch<{ object: CallDetails }>(endpoint);
+    if (!response.object)
+      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
+    return response.object;
   }
 
   async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/technical-calls/${callId}`);
-    return response.object || response;
+    // expert_tool_table=true is CRITICAL — without it the server returns 500
+    const endpoint = `/technical-calls/${callId}?expert_tool_table=true`;
+    const response = await this.fetch<{ object: CallDetails }>(endpoint);
+    if (!response.object)
+      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
+    return response.object;
   }
 
   async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
@@ -164,7 +181,10 @@ export class RumbleClient {
 
   async getAssetList(listId: string): Promise<AssetList> {
     // Asset lists use /api/assets-list/{id} endpoint (singular)
-    const response = await this.fetch<{ object: AssetList }>(`/assets-list/${listId}`);
-    return response.object || (response as unknown as AssetList);
+    const endpoint = `/assets-list/${listId}`;
+    const response = await this.fetch<{ object: AssetList }>(endpoint);
+    if (!response.object)
+      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
+    return response.object;
   }
 }

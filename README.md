@@ -28,7 +28,7 @@ An MCP (Model Context Protocol) server that provides AI assistants with access t
 | 📈 **Fundamental Calls** | Long-term investment recommendations with target prices, analyst ratings, and performance metrics |
 | 📊 **Technical Calls** | Short-term trading signals with entry, target, and stop-loss prices |
 | 🏆 **Track Records** | Historical performance and alpha vs EGX30 benchmark |
-| 📋 **Asset Lists** | Curated portfolios: RFP, Bottom Fisher, and RTP |
+| 📋 **Asset Lists** | Curated portfolios: RFP, Bottom Fisher, and RSP |
 
 ## Installation
 
