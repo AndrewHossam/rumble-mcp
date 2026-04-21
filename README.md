@@ -215,6 +215,7 @@ Once configured, ask your AI assistant:
 | `RUMBLE_MARKET` | No | Market code (default: `EGY` for Egypt) |
 | `RUMBLE_DEVICE_ID` | No | Stable device ID for request headers (auto-generated if omitted) |
 | `RUMBLE_SESSION_ID` | No | Stable session ID for request headers (auto-generated if omitted) |
+| `FIREBASE_API_KEY` | No | Public Firebase Web API key for token refresh (falls back to the built-in default) |
 
 ---
 
