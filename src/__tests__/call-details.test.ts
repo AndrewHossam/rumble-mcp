@@ -191,8 +191,14 @@ describe('handleCallDetailsTool', () => {
       })) as CallDetailsResponse;
 
       expect(result.story).toBeDefined();
+      expect(result.story?.text).toBe('Test story text');
+
       expect(result.performance).toBeDefined();
+      expect(result.performance?.start_price).toBe(100);
+
       expect(result.updates).toBeDefined();
+      if (!result.updates) throw new Error('updates should be defined');
+      expect(result.updates[0].title).toBe('Update 1');
     });
 
     it('extracts text from a contentful-format update (the_story field)', async () => {
