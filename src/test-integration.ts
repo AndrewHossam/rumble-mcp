@@ -31,20 +31,32 @@ async function runTest() {
 
       const onData = (data: Buffer) => {
         responseData += data.toString();
-        if (responseData.includes(`"id":${id}`)) {
-          server.stdout.removeListener('data', onData);
+        const lines = responseData.split('\n');
+        responseData = lines.pop() ?? ''; // keep incomplete trailing line
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let parsed: unknown;
           try {
-            const response = JSON.parse(
-              responseData.split('\n').filter(l => l.includes(`"id":${id}`))[0]
-            );
+            parsed = JSON.parse(line);
+          } catch {
+            // not a JSON line (MCP servers log to stderr but belt-and-suspenders)
+            continue;
+          }
+          if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            'id' in parsed &&
+            (parsed as { id: unknown }).id === id
+          ) {
+            server.stdout.removeListener('data', onData);
+            const response = parsed as { id: number; error?: unknown; result?: unknown };
             if (response.error) {
               reject(new Error(`Tool ${name} failed: ${JSON.stringify(response.error)}`));
             } else {
               console.log(`✅ Tool ${name} passed!`);
               resolve(response.result);
             }
-          } catch (e) {
-            reject(new Error(`Failed to parse response for ${name}: ${e}`));
+            return;
           }
         }
       };

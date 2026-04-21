@@ -28,7 +28,7 @@ An MCP (Model Context Protocol) server that provides AI assistants with access t
 | 📈 **Fundamental Calls** | Long-term investment recommendations with target prices, analyst ratings, and performance metrics |
 | 📊 **Technical Calls** | Short-term trading signals with entry, target, and stop-loss prices |
 | 🏆 **Track Records** | Historical performance and alpha vs EGX30 benchmark |
-| 📋 **Asset Lists** | Curated portfolios: RFP, Bottom Fisher, and RTP |
+| 📋 **Asset Lists** | Curated portfolios: RFP, Bottom Fisher, and RSP |
 
 ## Installation
 
@@ -184,7 +184,7 @@ Most MCP-compatible clients follow a similar pattern:
 | `list_known_portfolios` | Portfolios | List all known portfolio aliases |
 
 ### `get_call_details` Usage
-*   **Parameters**: `callId` (required), `type` (optional: fundamental/technical), `sections` (optional: `["story", "performance", "updates", "news"]`)
+*   **Parameters**: `callId` (required), `type` (optional: fundamental/technical), `sections` (optional: `["story", "performance", "updates"]`)
 *   **Example**:
     ```json
     {"callId": "call_id_here", "sections": ["performance", "updates"]}
@@ -211,8 +211,11 @@ Once configured, ask your AI assistant:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `RUMBLE_FIREBASE_TOKEN` | ✅ Yes | Your Firebase ID token from therumble.app |
-| `RUMBLE_REFRESH_TOKEN` | ✅ Yes | Your Firebase refresh token for auto-renewal |
+| `RUMBLE_REFRESH_TOKEN` | Recommended | Firebase refresh token for automatic token renewal |
 | `RUMBLE_MARKET` | No | Market code (default: `EGY` for Egypt) |
+| `RUMBLE_DEVICE_ID` | No | Stable device ID for request headers (auto-generated if omitted) |
+| `RUMBLE_SESSION_ID` | No | Stable session ID for request headers (auto-generated if omitted) |
+| `FIREBASE_API_KEY` | No | Public Firebase Web API key for token refresh (falls back to the built-in default) |
 
 ---
 

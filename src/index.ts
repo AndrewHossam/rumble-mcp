@@ -6,7 +6,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { config } from 'dotenv';
-import { zodToJsonSchema } from './utils/zod-to-json.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { RumbleClient } from './api/client.js';
 import { fundamentalToolSchemas, handleFundamentalTool } from './tools/fundamental.js';
 import { technicalToolSchemas, handleTechnicalTool } from './tools/technical.js';
@@ -119,7 +119,8 @@ async function main() {
   console.error('[rumble-mcp] Rumble MCP Server running on stdio');
 }
 
-main().catch(error => {
-  console.error('[rumble-mcp] Fatal error:', error);
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error('[rumble-mcp] Fatal error:', message);
   process.exit(1);
 });

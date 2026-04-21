@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { RumbleClient } from '../api/client.js';
+import type { IRumbleClient } from '../api/client.js';
+import {
+  computePerformance,
+  computeRemainingReturn,
+  mapAnalysts,
+  mapReleaseAuthors,
+} from './_shared.js';
 
 export const fundamentalToolSchemas = {
   get_fundamental_calls: {
@@ -17,7 +23,7 @@ export const fundamentalToolSchemas = {
   },
   get_fundamental_track_record: {
     description:
-      'Get the overall track record for fundamental calls, including win rate, average return, and alpha vs benchmark.',
+      'Get the overall track record for fundamental calls, including average return, alpha vs benchmark, and hit ratio.',
     inputSchema: z.object({
       market: z.string().default('EGY').describe('Market code (default: EGY for Egypt)'),
     }),
@@ -31,7 +37,7 @@ export const fundamentalToolSchemas = {
 };
 
 export async function handleFundamentalTool(
-  client: RumbleClient,
+  client: IRumbleClient,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
@@ -43,15 +49,20 @@ export async function handleFundamentalTool(
         count: calls.length,
         calls: calls.map(call => ({
           id: call.id,
-          ticker: call.ticker,
-          company: call.company_name,
-          rating: call.rating,
+          ticker: call.asset?.symbol,
+          company: call.asset?.name,
+          industry: call.asset?.industry,
+          recommendation: call.recommended_action,
+          status: call.status,
+          start_price: call.start_price,
           target_price: call.target_price,
-          current_price: call.current_price,
-          remaining_return: call.remaining_return,
-          performance: call.performance,
-          analysts: call.analysts,
-          updated_at: call.updated_at,
+          current_price: call.price,
+          performance_pct: computePerformance(call.start_price, call.price),
+          remaining_return_pct: computeRemainingReturn(call.price, call.target_price),
+          updated_at: call.updated_datetime,
+          published_at: call.published_datetime,
+          analysts: mapAnalysts(call.experts),
+          index: call.index,
         })),
       };
     }
@@ -63,7 +74,19 @@ export async function handleFundamentalTool(
 
     case 'get_latest_releases': {
       const params = fundamentalToolSchemas.get_latest_releases.inputSchema.parse(args);
-      return await client.getLatestReleases(params.market);
+      const releases = await client.getLatestReleases(params.market);
+      return {
+        count: releases.length,
+        releases: releases.map(r => ({
+          title: r.title,
+          summary: r.short_description,
+          updated_at: r.update_datetime,
+          parent_id: r.parent_id,
+          type: r.parent_type,
+          authors: mapReleaseAuthors(r.authors),
+          thumbnail: r.thumbnail_image,
+        })),
+      };
     }
 
     default:

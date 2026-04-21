@@ -6,18 +6,7 @@ import { technicalToolSchemas, handleTechnicalTool } from '../tools/technical.js
 import { assetToolSchemas, handleAssetTool, KNOWN_LISTS } from '../tools/assets.js';
 import { callDetailsToolSchemas } from '../tools/call-details.js';
 import { TrackRecordSchema } from '../types/index.js';
-
-// Mock RumbleClient
-const createMockClient = () => ({
-  getFundamentalCalls: vi.fn(),
-  getTechnicalCalls: vi.fn(),
-  getFundamentalCallDetails: vi.fn(),
-  getTechnicalCallDetails: vi.fn(),
-  getFundamentalTrackRecord: vi.fn(),
-  getTechnicalTrackRecord: vi.fn(),
-  getLatestReleases: vi.fn(),
-  getAssetList: vi.fn(),
-});
+import { createMockClient, type MockRumbleClient } from './_helpers.js';
 
 describe('Tool Schema Validation', () => {
   describe('Fundamental Tool Schemas', () => {
@@ -107,6 +96,15 @@ describe('Tool Schema Validation', () => {
       expect(result.sections).toEqual(['story', 'performance']);
     });
 
+    it('should validate all available sections', () => {
+      // 'news' section was removed as it is not in the actual API response
+      const result = callDetailsToolSchemas.get_call_details.inputSchema.parse({
+        callId: 'test123',
+        sections: ['story', 'performance', 'updates'],
+      });
+      expect(result.sections).toEqual(['story', 'performance', 'updates']);
+    });
+
     it('should reject invalid type', () => {
       expect(() =>
         callDetailsToolSchemas.get_call_details.inputSchema.parse({
@@ -119,7 +117,7 @@ describe('Tool Schema Validation', () => {
 });
 
 describe('Tool Handlers', () => {
-  let mockClient: ReturnType<typeof createMockClient>;
+  let mockClient: MockRumbleClient;
 
   beforeEach(() => {
     mockClient = createMockClient();
@@ -127,26 +125,41 @@ describe('Tool Handlers', () => {
   });
 
   describe('handleFundamentalTool', () => {
-    it('should handle get_fundamental_calls', async () => {
+    it('should handle get_fundamental_calls and map to correct output fields', async () => {
+      // Mock data using REAL API shape (confirmed via live sampling 2026-04-20)
       const mockCalls = [
         {
           id: 'call1',
-          ticker: 'TEST',
-          company_name: 'Test Company',
-          rating: 'buy',
-          target_price: 100,
-          current_price: 80,
-          remaining_return: 0.25,
-          performance: 0.1,
-          analysts: ['Analyst 1'],
-          updated_at: '2024-01-01',
+          // Real API does NOT have root-level ticker — it's nested in asset.symbol
+          asset: {
+            id: 'asset1',
+            symbol: 'QNBE',
+            name: 'Qatar National Bank',
+            industry: 'banks',
+            market: 'EGY',
+          },
+          // Real API uses recommended_action, not rating
+          recommended_action: 'buy',
+          status: 'open',
+          start_price: 39.255,
+          target_price: 64,
+          // Real API uses price (live feed), not current_price
+          price: 47.32,
+          // Real API uses updated_datetime, not updated_at
+          updated_datetime: '2026-01-14T15:31:07.04+00:00',
+          published_datetime: '2024-01-23T11:28:29.142+00:00',
+          // Real API uses experts array, not analysts strings
+          experts: [
+            { id: 'e1', name: 'Mohamed Hosny', nickname: 'Hosny', type: 'FUNDAMENTAL_ANALYST' },
+          ],
+          index: 'EGX30CAPPED',
         },
       ];
       mockClient.getFundamentalCalls.mockResolvedValue(mockCalls);
 
-      const result = await handleFundamentalTool(mockClient as any, 'get_fundamental_calls', {
+      const result = (await handleFundamentalTool(mockClient, 'get_fundamental_calls', {
         limit: 5,
-      });
+      })) as { count: number; calls: Record<string, unknown>[] };
 
       expect(mockClient.getFundamentalCalls).toHaveBeenCalledWith({
         limit: 5,
@@ -154,23 +167,22 @@ describe('Tool Handlers', () => {
         market: 'EGY',
         status: 'active',
       });
-      expect(result).toEqual({
-        count: 1,
-        calls: [
-          {
-            id: 'call1',
-            ticker: 'TEST',
-            company: 'Test Company',
-            rating: 'buy',
-            target_price: 100,
-            current_price: 80,
-            remaining_return: 0.25,
-            performance: 0.1,
-            analysts: ['Analyst 1'],
-            updated_at: '2024-01-01',
-          },
-        ],
-      });
+      expect(result.count).toBe(1);
+      const call = result.calls[0];
+      // Verify correct field mapping:
+      expect(call.id).toBe('call1');
+      expect(call.ticker).toBe('QNBE'); // mapped from asset.symbol
+      expect(call.company).toBe('Qatar National Bank'); // mapped from asset.name
+      expect(call.industry).toBe('banks'); // mapped from asset.industry
+      expect(call.recommendation).toBe('buy'); // mapped from recommended_action
+      expect(call.current_price).toBe(47.32); // mapped from price
+      expect(call.start_price).toBe(39.255);
+      expect(call.target_price).toBe(64);
+      expect(call.analysts).toEqual(['Hosny']); // mapped from experts[].nickname
+      expect(call.updated_at).toBe('2026-01-14T15:31:07.04+00:00'); // mapped from updated_datetime
+      // Computed fields
+      expect(call.performance_pct).toBeDefined();
+      expect(call.remaining_return_pct).toBeDefined();
     });
 
     it('should handle get_fundamental_track_record with real field names', async () => {
@@ -184,11 +196,7 @@ describe('Tool Handlers', () => {
       };
       mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      const result = await handleFundamentalTool(
-        mockClient as any,
-        'get_fundamental_track_record',
-        {}
-      );
+      const result = await handleFundamentalTool(mockClient, 'get_fundamental_track_record', {});
 
       expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('EGY');
       expect(result).toEqual(mockTrackRecord);
@@ -206,42 +214,129 @@ describe('Tool Handlers', () => {
       };
       mockClient.getFundamentalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      await handleFundamentalTool(mockClient as any, 'get_fundamental_track_record', {
+      await handleFundamentalTool(mockClient, 'get_fundamental_track_record', {
         market: 'USA',
       });
 
       expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('USA');
     });
 
+    it('should handle get_latest_releases and map to correct output fields', async () => {
+      const mockReleases = [
+        {
+          title: 'Buy QNBE Update',
+          parent_id: 'call-123',
+          update_id: 'update-456',
+          update_datetime: '2026-04-20T10:00:00.000Z',
+          parent_type: 'FUNDAMENTAL_CALL',
+          short_description: 'Strong buy signal confirmed',
+          thumbnail_image: 'https://example.com/thumb.jpg',
+          authors: [{ id: 'a1', nickname: 'Hosny', image: 'img.png' }],
+        },
+        {
+          // release with minimal/optional fields omitted
+          title: 'Market Update',
+          parent_id: 'call-789',
+          parent_type: 'FUNDAMENTAL_CALL',
+        },
+      ];
+      mockClient.getLatestReleases.mockResolvedValue(mockReleases);
+
+      const result = (await handleFundamentalTool(mockClient, 'get_latest_releases', {
+        market: 'EGY',
+      })) as { count: number; releases: Record<string, unknown>[] };
+
+      expect(mockClient.getLatestReleases).toHaveBeenCalledWith('EGY');
+      expect(result.count).toBe(2);
+
+      const first = result.releases[0];
+      expect(first.title).toBe('Buy QNBE Update');
+      expect(first.summary).toBe('Strong buy signal confirmed');
+      expect(first.updated_at).toBe('2026-04-20T10:00:00.000Z');
+      expect(first.parent_id).toBe('call-123');
+      expect(first.type).toBe('FUNDAMENTAL_CALL');
+      expect(first.authors).toEqual(['Hosny']);
+      expect(first.thumbnail).toBe('https://example.com/thumb.jpg');
+
+      const second = result.releases[1];
+      expect(second.title).toBe('Market Update');
+      expect(second.summary).toBeUndefined();
+      expect(second.authors).toBeUndefined();
+    });
+
+    it('should handle get_latest_releases with default market', async () => {
+      mockClient.getLatestReleases.mockResolvedValue([]);
+
+      const result = (await handleFundamentalTool(mockClient, 'get_latest_releases', {})) as {
+        count: number;
+      };
+
+      expect(mockClient.getLatestReleases).toHaveBeenCalledWith('EGY');
+      expect(result.count).toBe(0);
+    });
+
     it('should throw for unknown tool', async () => {
-      await expect(handleFundamentalTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleFundamentalTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown fundamental tool: unknown_tool'
       );
     });
   });
 
   describe('handleTechnicalTool', () => {
-    it('should handle get_technical_calls', async () => {
+    it('should handle get_technical_calls and map to correct output fields', async () => {
+      // Mock data using REAL API shape (confirmed via live sampling 2026-04-20)
       const mockCalls = [
         {
           id: 'tech1',
-          ticker: 'TECH',
-          company_name: 'Tech Company',
-          entry_price: 50,
-          target_price: 60,
-          stop_loss: 45,
-          current_price: 52,
-          performance: 0.04,
-          risk_reward: 2.0,
-          updated_at: '2024-01-01',
+          // Real API does NOT have root-level ticker — it's nested in asset.symbol
+          asset: {
+            id: 'asset2',
+            symbol: 'OFH',
+            name: 'Orascom Financial Holding',
+            industry: 'non-bank-financial-services',
+          },
+          // Real API uses action, not recommended_action for technical
+          action: 'buy',
+          status: 'open',
+          // Real API uses start_price (not entry_price), buy_range_start/end
+          start_price: 0.612,
+          target_price: 0.7,
+          buy_range_start: 0.606,
+          buy_range_end: 0.624,
+          // Real API uses price (live), not current_price
+          price: 0.631,
+          // Real API uses updated_datetime, not updated_at
+          updated_datetime: '2026-04-19T08:25:29.127+00:00',
+          published_datetime: '2026-04-19T08:25:29.127+00:00',
+          experts: [
+            { id: 'e2', name: 'Ahmed ElHefnawi', nickname: 'Hefnawy', type: 'TECHNICAL_ANALYST' },
+          ],
+          index: 'EGX30CAPPED',
         },
       ];
       mockClient.getTechnicalCalls.mockResolvedValue(mockCalls);
 
-      const result = await handleTechnicalTool(mockClient as any, 'get_technical_calls', {});
+      const result = (await handleTechnicalTool(mockClient, 'get_technical_calls', {})) as {
+        count: number;
+        calls: Record<string, unknown>[];
+      };
 
-      expect(result).toHaveProperty('count', 1);
-      expect(result).toHaveProperty('calls');
+      expect(result.count).toBe(1);
+      const call = result.calls[0];
+      // Verify correct field mapping:
+      expect(call.id).toBe('tech1');
+      expect(call.ticker).toBe('OFH'); // mapped from asset.symbol
+      expect(call.company).toBe('Orascom Financial Holding'); // mapped from asset.name
+      expect(call.action).toBe('buy'); // mapped from action
+      expect(call.entry_price).toBe(0.612); // mapped from start_price
+      expect(call.target_price).toBe(0.7);
+      expect(call.current_price).toBe(0.631); // mapped from price
+      expect(call.buy_range).toEqual({ start: 0.606, end: 0.624 }); // from buy_range_start/end
+      expect(call.analysts).toEqual(['Hefnawy']); // mapped from experts[].nickname
+      expect(call.updated_at).toBe('2026-04-19T08:25:29.127+00:00'); // from updated_datetime
+      // Computed fields
+      expect(call.performance_pct).toBeDefined();
+      expect(call.remaining_return_pct).toBeDefined();
     });
 
     it('should handle get_technical_track_record with real field names', async () => {
@@ -255,7 +350,7 @@ describe('Tool Handlers', () => {
       };
       mockClient.getTechnicalTrackRecord.mockResolvedValue(mockTrackRecord);
 
-      const result = await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {});
+      const result = await handleTechnicalTool(mockClient, 'get_technical_track_record', {});
 
       expect(mockClient.getTechnicalTrackRecord).toHaveBeenCalledWith('EGY');
       expect(result).toEqual(mockTrackRecord);
@@ -268,7 +363,7 @@ describe('Tool Handlers', () => {
     it('should handle get_technical_track_record with a custom market', async () => {
       mockClient.getTechnicalTrackRecord.mockResolvedValue({ callsCount: 5 });
 
-      await handleTechnicalTool(mockClient as any, 'get_technical_track_record', {
+      await handleTechnicalTool(mockClient, 'get_technical_track_record', {
         market: 'USA',
       });
 
@@ -276,7 +371,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should throw for unknown tool', async () => {
-      await expect(handleTechnicalTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleTechnicalTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown technical tool: unknown_tool'
       );
     });
@@ -287,37 +382,62 @@ describe('Tool Handlers', () => {
       const mockAssetList = { id: KNOWN_LISTS['rfp-egx'], name: 'RFP' };
       mockClient.getAssetList.mockResolvedValue(mockAssetList);
 
-      await handleAssetTool(mockClient as any, 'get_asset_list', { listId: 'rfp-egx' });
+      await handleAssetTool(mockClient, 'get_asset_list', { listId: 'rfp-egx' });
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rfp-egx']);
     });
 
     it('should use raw ID if not an alias', async () => {
       const rawId = 'customListId123';
-      mockClient.getAssetList.mockResolvedValue({ id: rawId });
+      mockClient.getAssetList.mockResolvedValue({ id: rawId, name: 'Custom List' });
 
-      await handleAssetTool(mockClient as any, 'get_asset_list', { listId: rawId });
+      await handleAssetTool(mockClient, 'get_asset_list', { listId: rawId });
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(rawId);
     });
 
     it('should handle list_known_portfolios', async () => {
-      const result = await handleAssetTool(mockClient as any, 'list_known_portfolios', {});
+      const result = await handleAssetTool(mockClient, 'list_known_portfolios', {});
 
       expect(result).toHaveProperty('portfolios');
-      expect((result as any).portfolios).toHaveLength(3);
+      expect((result as { portfolios: unknown[] }).portfolios).toHaveLength(3);
     });
 
     it('should handle get_rfp_portfolio', async () => {
-      mockClient.getAssetList.mockResolvedValue({ id: KNOWN_LISTS['rfp-egx'] });
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['rfp-egx'],
+        name: 'Rumble Fundamental Portfolio',
+      });
 
-      await handleAssetTool(mockClient as any, 'get_rfp_portfolio', {});
+      await handleAssetTool(mockClient, 'get_rfp_portfolio', {});
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rfp-egx']);
     });
 
+    it('should handle get_bottom_fisher_portfolio with the correct list id', async () => {
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['bottom-fisher'],
+        name: 'Bottom Fisher',
+      });
+
+      await handleAssetTool(mockClient, 'get_bottom_fisher_portfolio', {});
+
+      expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['bottom-fisher']);
+    });
+
+    it('should handle get_rsp_portfolio with the correct list id', async () => {
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['rsp-egx'],
+        name: 'Rumble Shariah Portfolio',
+      });
+
+      await handleAssetTool(mockClient, 'get_rsp_portfolio', {});
+
+      expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rsp-egx']);
+    });
+
     it('should throw for unknown tool', async () => {
-      await expect(handleAssetTool(mockClient as any, 'unknown_tool', {})).rejects.toThrow(
+      await expect(handleAssetTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown asset tool: unknown_tool'
       );
     });

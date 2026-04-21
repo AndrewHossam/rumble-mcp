@@ -59,7 +59,7 @@ const EXTRACTION_SCRIPT = `
     const refresh = await getRefreshTokenFromDB();
 
     if (token) {
-        console.log('\\n🔑 Rumple Credentials Found:\\n');
+        console.log('\\n🔑 Rumble Credentials Found:\\n');
         console.log(\`RUMBLE_FIREBASE_TOKEN=\${token}\`);
         if (refresh) {
             console.log(\`RUMBLE_REFRESH_TOKEN=\${refresh || 'NOT FOUND'}\`);

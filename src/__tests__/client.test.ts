@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RumbleClient } from '../api/client.js';
+import { RumbleClient, NotFoundError } from '../api/client.js';
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -23,7 +23,7 @@ vi.mock('../api/token-refresh.js', () => {
 
     constructor() {
       // Expose the latest instance for test assertions
-      mockManagerInstance = this as any;
+      mockManagerInstance = this as typeof mockManagerInstance;
     }
   }
 
@@ -42,12 +42,13 @@ function makeOkResponse(body: unknown) {
   };
 }
 
-function makeErrorResponse(status: number, statusText: string) {
+function makeErrorResponse(status: number, statusText: string, body = '') {
   return {
     ok: false,
     status,
     statusText,
     json: () => Promise.resolve({}),
+    text: () => Promise.resolve(body),
   };
 }
 
@@ -74,7 +75,10 @@ describe('RumbleClient', () => {
 
   describe('getFundamentalCalls', () => {
     it('calls the correct endpoint and returns the objects array', async () => {
-      const mockCalls = [{ id: 'call1', ticker: 'TEST' }];
+      // Use real API shape: no root-level ticker, asset is nested
+      const mockCalls = [
+        { id: 'call1', asset: { id: 'a1', symbol: 'TEST', name: 'Test Co' }, status: 'open' },
+      ];
       mockFetch.mockResolvedValue(makeOkResponse({ objects: mockCalls }));
 
       const result = await client.getFundamentalCalls();
@@ -105,11 +109,10 @@ describe('RumbleClient', () => {
       expect(calledUrl).toContain('market%5B%5D=EGY');
     });
 
-    it('returns an empty array when the response has no objects field', async () => {
+    it('throws a ZodError when the response has no objects field', async () => {
       mockFetch.mockResolvedValue(makeOkResponse({}));
 
-      const result = await client.getFundamentalCalls();
-      expect(result).toEqual([]);
+      await expect(client.getFundamentalCalls()).rejects.toThrow();
     });
   });
 
@@ -131,6 +134,12 @@ describe('RumbleClient', () => {
       const calledUrl: string = mockFetch.mock.calls[0][0];
       expect(calledUrl).toContain('limit=3');
       expect(calledUrl).toContain('status=active');
+    });
+
+    it('throws when the response has no objects field (no silent default)', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({}));
+
+      await expect(client.getTechnicalCalls()).rejects.toThrow();
     });
   });
 
@@ -193,11 +202,53 @@ describe('RumbleClient', () => {
     });
   });
 
+  describe('getLatestReleases', () => {
+    it('calls the correct endpoint with the right params', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+
+      await client.getLatestReleases('EGY');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/latest-releases');
+      expect(calledUrl).toContain('fundamental_content_only=true');
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('returns the objects array from the response', async () => {
+      const mockReleases = [
+        { title: 'Release One', parent_id: 'p1', update_id: 'u1' },
+        { title: 'Release Two', parent_id: 'p2', update_id: 'u2' },
+      ];
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: mockReleases }));
+
+      const result = await client.getLatestReleases();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('Release One');
+      expect(result[1].parent_id).toBe('p2');
+    });
+
+    it('throws a ZodError when the response has no objects field', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({}));
+
+      await expect(client.getLatestReleases()).rejects.toThrow();
+    });
+
+    it('uses the default market when none is provided', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+
+      await client.getLatestReleases();
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('market');
+    });
+  });
+
   describe('Error handling', () => {
-    it('throws an error on a non-200 response', async () => {
+    it('throws a NotFoundError on a 404 response', async () => {
       mockFetch.mockResolvedValue(makeErrorResponse(404, 'Not Found'));
 
-      await expect(client.getFundamentalCalls()).rejects.toThrow('API Error: 404 Not Found');
+      await expect(client.getFundamentalCalls()).rejects.toThrow(NotFoundError);
     });
 
     it('throws an error on a 500 response', async () => {
@@ -213,21 +264,51 @@ describe('RumbleClient', () => {
     it('retries with a refreshed token on a 401 response when a refresh token is available', async () => {
       // Each new RumbleClient instantiation sets mockManagerInstance
       const localClient = new RumbleClient('test-token', 'EGY');
-      const manager = mockManagerInstance!;
+      if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
+      const manager = mockManagerInstance;
 
       // Simulate having a refresh token
       manager.hasRefreshToken.mockReturnValue(true);
 
       // First call returns 401, second (retry) call returns 200
-      mockFetch
-        .mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized'))
-        .mockResolvedValueOnce(makeOkResponse({ objects: [{ id: 'retried-call' }] }));
+      mockFetch.mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized')).mockResolvedValueOnce(
+        makeOkResponse({
+          objects: [{ id: 'retried-call', asset: { id: 'a2', symbol: 'RETRY', name: 'Retry Co' } }],
+        })
+      );
 
       const result = await localClient.getFundamentalCalls();
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(manager.refresh).toHaveBeenCalled();
-      expect(result).toEqual([{ id: 'retried-call' }]);
+      expect(result).toEqual([
+        { id: 'retried-call', asset: { id: 'a2', symbol: 'RETRY', name: 'Retry Co' } },
+      ]);
+    });
+
+    it('preserves singularMarket=true on 401 retry so track-record endpoints keep market=EGY', async () => {
+      const localClient = new RumbleClient('test-token', 'EGY');
+      if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
+      const manager = mockManagerInstance;
+
+      manager.hasRefreshToken.mockReturnValue(true);
+
+      const mockTrackRecord = { avgCallsReturn: 0.5, callsCount: 10 };
+
+      // First call returns 401, retry returns 200
+      mockFetch
+        .mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized'))
+        .mockResolvedValueOnce(makeOkResponse({ object: mockTrackRecord }));
+
+      await localClient.getFundamentalTrackRecord('EGY');
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(manager.refresh).toHaveBeenCalled();
+
+      // Both the initial call and the retry must use singular market=EGY, not market%5B%5D=EGY
+      const retryUrl: string = mockFetch.mock.calls[1][0];
+      expect(retryUrl).toContain('market=EGY');
+      expect(retryUrl).not.toContain('market%5B%5D');
     });
   });
 
@@ -250,6 +331,58 @@ describe('RumbleClient', () => {
       expect(calledHeaders['x-rumble-device-id']).toBeDefined();
       expect(calledHeaders['x-rumble-session-id']).toBeDefined();
       expect(calledHeaders['x-rumble-request-id']).toBeDefined();
+    });
+  });
+
+  // ─── Critical regression tests for the 500 fix ─────────────────────────────
+  describe('Call detail endpoints include expert_tool_table=true', () => {
+    it('getTechnicalCallDetails MUST include expert_tool_table=true (missing param causes 500)', async () => {
+      const mockDetail = {
+        id: 'tech-1',
+        status: 'open',
+        action: 'buy',
+        asset: { id: 'a1', symbol: 'OFH', name: 'Orascom' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      await client.getTechnicalCallDetails('tech-1');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/technical-calls/tech-1');
+      // This is the critical fix: without expert_tool_table=true the API returns 500
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('getFundamentalCallDetails MUST include expert_tool_table=true', async () => {
+      const mockDetail = {
+        id: 'fund-1',
+        status: 'open',
+        recommended_action: 'buy',
+        asset: { id: 'a2', symbol: 'QNBE', name: 'QNB' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      await client.getFundamentalCallDetails('fund-1');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/fundamental-calls/fund-1');
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('getTechnicalCallDetails unwraps the object envelope', async () => {
+      const mockDetail = {
+        id: 'tech-2',
+        status: 'open',
+        action: 'sell',
+        asset: { id: 'a3', symbol: 'EFIH', name: 'EFG' },
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      const result = await client.getTechnicalCallDetails('tech-2');
+
+      // Should unwrap response.object, not return the envelope
+      expect(result).toEqual(mockDetail);
+      expect((result as unknown as Record<string, unknown>).object).toBeUndefined();
     });
   });
 });

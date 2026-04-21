@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type {
   ListParams,
   FundamentalCall,
@@ -7,8 +8,35 @@ import type {
   CallDetails,
   LatestRelease,
 } from '../types/index.js';
-import { randomBytes } from 'crypto';
+import { FundamentalCallSchema, TechnicalCallSchema, LatestReleaseSchema } from '../types/index.js';
+import { randomBytes } from 'node:crypto';
 import { TokenManager } from './token-refresh.js';
+
+// ─── Response envelope schemas ────────────────────────────────────────────────
+
+const FundamentalCallsEnvelopeSchema = z.object({
+  objects: z.array(FundamentalCallSchema),
+  pagination: z.object({ total: z.number() }).optional(),
+});
+
+const TechnicalCallsEnvelopeSchema = z.object({
+  objects: z.array(TechnicalCallSchema),
+  pagination: z.object({ total: z.number() }).optional(),
+});
+
+const LatestReleasesEnvelopeSchema = z.object({
+  objects: z.array(LatestReleaseSchema),
+});
+
+// ─── Custom error types ────────────────────────────────────────────────────────
+
+export class NotFoundError extends Error {
+  readonly statusCode = 404;
+  constructor(resource: string) {
+    super(`Not found: ${resource}`);
+    this.name = 'NotFoundError';
+  }
+}
 
 const BASE_URL = 'https://therumble.app/api';
 
@@ -24,7 +52,24 @@ function generateId(length: number = 21): string {
   return result;
 }
 
-export class RumbleClient {
+/**
+ * Public interface for the Rumble API client.
+ * Tool handlers and tests should depend on this interface rather than
+ * the concrete `RumbleClient` class so that mocks can satisfy the type
+ * without needing to replicate private fields.
+ */
+export interface IRumbleClient {
+  getFundamentalCalls(params?: ListParams): Promise<FundamentalCall[]>;
+  getTechnicalCalls(params?: ListParams): Promise<TechnicalCall[]>;
+  getFundamentalCallDetails(callId: string): Promise<CallDetails>;
+  getTechnicalCallDetails(callId: string): Promise<CallDetails>;
+  getFundamentalTrackRecord(market?: string): Promise<TrackRecord>;
+  getTechnicalTrackRecord(market?: string): Promise<TrackRecord>;
+  getLatestReleases(market?: string): Promise<LatestRelease[]>;
+  getAssetList(listId: string): Promise<AssetList>;
+}
+
+export class RumbleClient implements IRumbleClient {
   private tokenManager: TokenManager;
   private defaultMarket: string;
   private deviceId: string;
@@ -47,14 +92,15 @@ export class RumbleClient {
   private async fetch<T>(
     endpoint: string,
     params?: Record<string, string | number | boolean>,
-    retryOnAuth: boolean = true
+    retryOnAuth: boolean = true,
+    singularMarket: boolean = false
   ): Promise<T> {
     const url = new URL(`${BASE_URL}${endpoint}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          if (key === 'market') {
+          if (key === 'market' && !singularMarket) {
             url.searchParams.append('market[]', String(value));
           } else {
             url.searchParams.append(key, String(value));
@@ -82,17 +128,55 @@ export class RumbleClient {
       try {
         await this.tokenManager.refresh();
         // Retry the request with new token (but don't retry again)
-        return this.fetch<T>(endpoint, params, false);
+        return this.fetch<T>(endpoint, params, false, singularMarket);
       } catch (refreshError) {
         throw new Error(`API Error: 401 Unauthorized (token refresh failed: ${refreshError})`);
       }
     }
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (response.status === 404) {
+        throw new NotFoundError(url.pathname);
+      }
+      // Include body in error message to help diagnose server-side failures
+      let body = '';
+      try {
+        body = await response.text();
+      } catch (bodyReadError) {
+        console.warn(
+          `[rumble-mcp] Failed to read error response body (status ${response.status}):`,
+          bodyReadError
+        );
+      }
+      throw new Error(
+        `API Error: ${response.status} ${response.statusText}${body ? ` — ${body}` : ''}`
+      );
     }
 
     return response.json() as Promise<T>;
+  }
+
+  /**
+   * Fetch a single-object endpoint (response envelope: `{ object: T }`).
+   * Throws a descriptive error when the `object` field is absent.
+   *
+   * Pass `singularMarket: true` for endpoints that require `market=X`
+   * instead of the default array form `market[]=X`.
+   */
+  private async fetchSingle<T>(
+    endpoint: string,
+    params?: Record<string, string | number | boolean>,
+    options: { singularMarket?: boolean } = {}
+  ): Promise<T> {
+    const response = await this.fetch<{ object: T }>(
+      endpoint,
+      params,
+      true,
+      options.singularMarket ?? false
+    );
+    if (!response.object)
+      throw new Error(`Malformed response from ${endpoint}: missing 'object' field`);
+    return response.object;
   }
 
   async getFundamentalCalls(params: ListParams = {}): Promise<FundamentalCall[]> {
@@ -105,11 +189,9 @@ export class RumbleClient {
       expert_tool_table: true,
     };
 
-    const response = await this.fetch<{
-      objects: FundamentalCall[];
-      pagination?: { total: number };
-    }>('/fundamental-calls', queryParams);
-    return response.objects || [];
+    const raw = await this.fetch<unknown>('/fundamental-calls', queryParams);
+    const response = FundamentalCallsEnvelopeSchema.parse(raw);
+    return response.objects;
   }
 
   async getTechnicalCalls(params: ListParams = {}): Promise<TechnicalCall[]> {
@@ -121,50 +203,55 @@ export class RumbleClient {
       expert_tool_table: true,
     };
 
-    const response = await this.fetch<{ objects: TechnicalCall[]; pagination?: { total: number } }>(
-      '/technical-calls',
-      queryParams
-    );
-    return response.objects || [];
+    const raw = await this.fetch<unknown>('/technical-calls', queryParams);
+    const response = TechnicalCallsEnvelopeSchema.parse(raw);
+    return response.objects;
   }
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/fundamental-calls/${callId}`);
-    return response.object || response;
+    // expert_tool_table=true is required to get the full detail payload
+    return this.fetchSingle<CallDetails>(`/fundamental-calls/${callId}`, {
+      expert_tool_table: true,
+    });
   }
 
   async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
-    const response = await this.fetch<{ object: CallDetails }>(`/technical-calls/${callId}`);
-    return response.object || response;
+    // expert_tool_table=true is CRITICAL — without it the server returns 500
+    return this.fetchSingle<CallDetails>(`/technical-calls/${callId}`, {
+      expert_tool_table: true,
+    });
   }
 
   async getFundamentalTrackRecord(market?: string): Promise<TrackRecord> {
-    // The track-record endpoints require a singular `market` query param.
-    // The shared fetch() helper converts `market` keys to `market[]`, which
-    // causes a 500 on this endpoint. Build the query string directly instead.
-    const endpoint = `/track-record/fundamental?market=${encodeURIComponent(market || this.defaultMarket)}`;
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
-    return raw.object;
+    // singularMarket: true — this endpoint requires `market=X` not `market[]=X`
+    return this.fetchSingle<TrackRecord>(
+      '/track-record/fundamental',
+      { market: market || this.defaultMarket },
+      { singularMarket: true }
+    );
   }
 
   async getTechnicalTrackRecord(market?: string): Promise<TrackRecord> {
-    const endpoint = `/track-record/technical?market=${encodeURIComponent(market || this.defaultMarket)}`;
-    const raw = await this.fetch<{ type: string; object: TrackRecord }>(endpoint);
-    return raw.object;
+    // singularMarket: true — this endpoint requires `market=X` not `market[]=X`
+    return this.fetchSingle<TrackRecord>(
+      '/track-record/technical',
+      { market: market || this.defaultMarket },
+      { singularMarket: true }
+    );
   }
 
   async getLatestReleases(market?: string): Promise<LatestRelease[]> {
-    const response = await this.fetch<{ objects: LatestRelease[] }>('/latest-releases', {
+    const raw = await this.fetch<unknown>('/latest-releases', {
       fundamental_content_only: true,
       market: market || this.defaultMarket,
       expert_tool_table: true,
     });
-    return response.objects || [];
+    const response = LatestReleasesEnvelopeSchema.parse(raw);
+    return response.objects;
   }
 
   async getAssetList(listId: string): Promise<AssetList> {
     // Asset lists use /api/assets-list/{id} endpoint (singular)
-    const response = await this.fetch<{ object: AssetList }>(`/assets-list/${listId}`);
-    return response.object || (response as unknown as AssetList);
+    return this.fetchSingle<AssetList>(`/assets-list/${listId}`);
   }
 }
