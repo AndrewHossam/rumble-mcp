@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RumbleClient } from '../api/client.js';
+import { computePerformance, computeRemainingReturn, mapAnalysts } from './_shared.js';
 
 export const fundamentalToolSchemas = {
   get_fundamental_calls: {
@@ -41,42 +42,23 @@ export async function handleFundamentalTool(
       const calls = await client.getFundamentalCalls(params);
       return {
         count: calls.length,
-        calls: calls.map(call => {
-          // Calculate performance vs start_price using current live price
-          const currentPrice = call.price;
-          const startPrice = call.start_price;
-          const performance =
-            currentPrice && startPrice
-              ? ((currentPrice - startPrice) / startPrice) * 100
-              : undefined;
-
-          // Calculate remaining return to target
-          const targetPrice = call.target_price;
-          const remainingReturn =
-            currentPrice && targetPrice
-              ? ((targetPrice - currentPrice) / currentPrice) * 100
-              : undefined;
-
-          return {
-            id: call.id,
-            ticker: call.asset?.symbol,
-            company: call.asset?.name,
-            industry: call.asset?.industry,
-            recommendation: call.recommended_action,
-            status: call.status,
-            start_price: call.start_price,
-            target_price: call.target_price,
-            current_price: call.price,
-            performance_pct:
-              performance !== undefined ? parseFloat(performance.toFixed(2)) : undefined,
-            remaining_return_pct:
-              remainingReturn !== undefined ? parseFloat(remainingReturn.toFixed(2)) : undefined,
-            updated_at: call.updated_datetime,
-            published_at: call.published_datetime,
-            analysts: call.experts?.map(e => e.nickname ?? e.name),
-            index: call.index,
-          };
-        }),
+        calls: calls.map(call => ({
+          id: call.id,
+          ticker: call.asset?.symbol,
+          company: call.asset?.name,
+          industry: call.asset?.industry,
+          recommendation: call.recommended_action,
+          status: call.status,
+          start_price: call.start_price,
+          target_price: call.target_price,
+          current_price: call.price,
+          performance_pct: computePerformance(call.start_price, call.price),
+          remaining_return_pct: computeRemainingReturn(call.price, call.target_price),
+          updated_at: call.updated_datetime,
+          published_at: call.published_datetime,
+          analysts: mapAnalysts(call.experts),
+          index: call.index,
+        })),
       };
     }
 

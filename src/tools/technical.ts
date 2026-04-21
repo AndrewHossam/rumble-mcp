@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import type { RumbleClient } from '../api/client.js';
+import {
+  computePerformance,
+  computeRemainingReturn,
+  mapAnalysts,
+  buildBuyRange,
+} from './_shared.js';
 
 export const technicalToolSchemas = {
   get_technical_calls: {
@@ -35,49 +41,24 @@ export async function handleTechnicalTool(
       const calls = await client.getTechnicalCalls(params);
       return {
         count: calls.length,
-        calls: calls.map(call => {
-          // Calculate performance vs start_price using current live price
-          const currentPrice = call.price;
-          const startPrice = call.start_price;
-          const performance =
-            currentPrice && startPrice
-              ? ((currentPrice - startPrice) / startPrice) * 100
-              : undefined;
-
-          // Calculate remaining return to target
-          const targetPrice = call.target_price;
-          const remainingReturn =
-            currentPrice && targetPrice
-              ? ((targetPrice - currentPrice) / currentPrice) * 100
-              : undefined;
-
-          return {
-            id: call.id,
-            ticker: call.asset?.symbol,
-            company: call.asset?.name,
-            industry: call.asset?.industry,
-            action: call.action,
-            status: call.status,
-            entry_price: call.start_price,
-            target_price: call.target_price,
-            buy_range:
-              call.buy_range_start !== null &&
-              call.buy_range_start !== undefined &&
-              call.buy_range_end !== null &&
-              call.buy_range_end !== undefined
-                ? { start: call.buy_range_start, end: call.buy_range_end }
-                : undefined,
-            current_price: call.price,
-            performance_pct:
-              performance !== undefined ? parseFloat(performance.toFixed(2)) : undefined,
-            remaining_return_pct:
-              remainingReturn !== undefined ? parseFloat(remainingReturn.toFixed(2)) : undefined,
-            updated_at: call.updated_datetime,
-            published_at: call.published_datetime,
-            analysts: call.experts?.map(e => e.nickname ?? e.name),
-            index: call.index,
-          };
-        }),
+        calls: calls.map(call => ({
+          id: call.id,
+          ticker: call.asset?.symbol,
+          company: call.asset?.name,
+          industry: call.asset?.industry,
+          action: call.action,
+          status: call.status,
+          entry_price: call.start_price,
+          target_price: call.target_price,
+          buy_range: buildBuyRange(call.buy_range_start, call.buy_range_end),
+          current_price: call.price,
+          performance_pct: computePerformance(call.start_price, call.price),
+          remaining_return_pct: computeRemainingReturn(call.price, call.target_price),
+          updated_at: call.updated_datetime,
+          published_at: call.published_datetime,
+          analysts: mapAnalysts(call.experts),
+          index: call.index,
+        })),
       };
     }
 
