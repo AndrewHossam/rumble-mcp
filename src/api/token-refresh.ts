@@ -10,8 +10,9 @@
 const _FIREBASE_PROJECT_ID = 'therumble-aec18';
 
 // Firebase Web API Key (this is a public key, safe to include)
-// Found from therumble.app network traffic (identitytoolkit call)
-const FIREBASE_API_KEY = 'AIzaSyCxRxO08j2VAnaKaGrFejEooYnbzxWg_WU';
+// Found from therumble.app network traffic (identitytoolkit call).
+// Can be overridden via the FIREBASE_API_KEY environment variable.
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY ?? 'AIzaSyCxRxO08j2VAnaKaGrFejEooYnbzxWg_WU';
 
 interface TokenRefreshResponse {
   access_token: string; // The new Firebase ID token
