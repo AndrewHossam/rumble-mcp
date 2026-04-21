@@ -55,7 +55,7 @@ Use the 'sections' parameter to filter which data to return.`,
  * Extract plain text from a Contentful rich-text document.
  * Fundamental calls use this format for `the_story`.
  */
-function extractContentfulText(richText: ContentfulDocument | undefined | null): string {
+export function extractContentfulText(richText: ContentfulDocument | undefined | null): string {
   if (!richText?.content) return '';
 
   const extractNode = (node: ContentfulNode): string => {
@@ -75,7 +75,7 @@ function extractContentfulText(richText: ContentfulDocument | undefined | null):
  * Technical call updates use this format, and some fundamental updates also use it.
  * Handles paragraphs, tables, and nested children blocks.
  */
-function extractRumbleBlockText(doc: RumbleRichTextDocument | undefined | null): string {
+export function extractRumbleBlockText(doc: RumbleRichTextDocument | undefined | null): string {
   if (!doc?.document) return '';
 
   const extractFromBlock = (block: RumbleBlock): string => {

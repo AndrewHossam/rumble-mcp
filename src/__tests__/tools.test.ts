@@ -221,6 +221,60 @@ describe('Tool Handlers', () => {
       expect(mockClient.getFundamentalTrackRecord).toHaveBeenCalledWith('USA');
     });
 
+    it('should handle get_latest_releases and map to correct output fields', async () => {
+      const mockReleases = [
+        {
+          title: 'Buy QNBE Update',
+          parent_id: 'call-123',
+          update_id: 'update-456',
+          update_datetime: '2026-04-20T10:00:00.000Z',
+          parent_type: 'FUNDAMENTAL_CALL',
+          short_description: 'Strong buy signal confirmed',
+          thumbnail_image: 'https://example.com/thumb.jpg',
+          authors: [{ id: 'a1', nickname: 'Hosny', image: 'img.png' }],
+        },
+        {
+          // release with minimal/optional fields omitted
+          title: 'Market Update',
+          parent_id: 'call-789',
+          parent_type: 'FUNDAMENTAL_CALL',
+        },
+      ];
+      mockClient.getLatestReleases.mockResolvedValue(mockReleases);
+
+      const result = (await handleFundamentalTool(mockClient, 'get_latest_releases', {
+        market: 'EGY',
+      })) as { count: number; releases: Record<string, unknown>[] };
+
+      expect(mockClient.getLatestReleases).toHaveBeenCalledWith('EGY');
+      expect(result.count).toBe(2);
+
+      const first = result.releases[0];
+      expect(first.title).toBe('Buy QNBE Update');
+      expect(first.summary).toBe('Strong buy signal confirmed');
+      expect(first.update_at).toBe('2026-04-20T10:00:00.000Z');
+      expect(first.parent_id).toBe('call-123');
+      expect(first.type).toBe('FUNDAMENTAL_CALL');
+      expect(first.authors).toEqual(['Hosny']);
+      expect(first.thumbnail).toBe('https://example.com/thumb.jpg');
+
+      const second = result.releases[1];
+      expect(second.title).toBe('Market Update');
+      expect(second.summary).toBeUndefined();
+      expect(second.authors).toBeUndefined();
+    });
+
+    it('should handle get_latest_releases with default market', async () => {
+      mockClient.getLatestReleases.mockResolvedValue([]);
+
+      const result = (await handleFundamentalTool(mockClient, 'get_latest_releases', {})) as {
+        count: number;
+      };
+
+      expect(mockClient.getLatestReleases).toHaveBeenCalledWith('EGY');
+      expect(result.count).toBe(0);
+    });
+
     it('should throw for unknown tool', async () => {
       await expect(handleFundamentalTool(mockClient, 'unknown_tool', {})).rejects.toThrow(
         'Unknown fundamental tool: unknown_tool'
@@ -358,6 +412,28 @@ describe('Tool Handlers', () => {
       await handleAssetTool(mockClient, 'get_rfp_portfolio', {});
 
       expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rfp-egx']);
+    });
+
+    it('should handle get_bottom_fisher_portfolio with the correct list id', async () => {
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['bottom-fisher'],
+        name: 'Bottom Fisher',
+      });
+
+      await handleAssetTool(mockClient, 'get_bottom_fisher_portfolio', {});
+
+      expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['bottom-fisher']);
+    });
+
+    it('should handle get_rsp_portfolio with the correct list id', async () => {
+      mockClient.getAssetList.mockResolvedValue({
+        id: KNOWN_LISTS['rsp-egx'],
+        name: 'Rumble Shariah Portfolio',
+      });
+
+      await handleAssetTool(mockClient, 'get_rsp_portfolio', {});
+
+      expect(mockClient.getAssetList).toHaveBeenCalledWith(KNOWN_LISTS['rsp-egx']);
     });
 
     it('should throw for unknown tool', async () => {

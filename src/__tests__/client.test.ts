@@ -196,6 +196,50 @@ describe('RumbleClient', () => {
     });
   });
 
+  describe('getLatestReleases', () => {
+    it('calls the correct endpoint with the right params', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+
+      await client.getLatestReleases('EGY');
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('/latest-releases');
+      expect(calledUrl).toContain('fundamental_content_only=true');
+      expect(calledUrl).toContain('expert_tool_table=true');
+    });
+
+    it('returns the objects array from the response', async () => {
+      const mockReleases = [
+        { title: 'Release One', parent_id: 'p1', update_id: 'u1' },
+        { title: 'Release Two', parent_id: 'p2', update_id: 'u2' },
+      ];
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: mockReleases }));
+
+      const result = await client.getLatestReleases();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('Release One');
+      expect(result[1].parent_id).toBe('p2');
+    });
+
+    it('returns an empty array when the response has no objects field', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({}));
+
+      const result = await client.getLatestReleases();
+
+      expect(result).toEqual([]);
+    });
+
+    it('uses the default market when none is provided', async () => {
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+
+      await client.getLatestReleases();
+
+      const calledUrl: string = mockFetch.mock.calls[0][0];
+      expect(calledUrl).toContain('market');
+    });
+  });
+
   describe('Error handling', () => {
     it('throws a NotFoundError on a 404 response', async () => {
       mockFetch.mockResolvedValue(makeErrorResponse(404, 'Not Found'));
