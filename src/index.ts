@@ -120,7 +120,7 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  const message = error instanceof Error ? error.message : String(error);
   console.error('[rumble-mcp] Fatal error:', message);
   process.exit(1);
 });
