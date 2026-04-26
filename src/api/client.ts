@@ -210,14 +210,14 @@ export class RumbleClient implements IRumbleClient {
 
   async getFundamentalCallDetails(callId: string): Promise<CallDetails> {
     // expert_tool_table=true is required to get the full detail payload
-    return this.fetchSingle<CallDetails>(`/fundamental-calls/${callId}`, {
+    return this.fetchSingle<CallDetails>(`/fundamental-calls/${encodeURIComponent(callId)}`, {
       expert_tool_table: true,
     });
   }
 
   async getTechnicalCallDetails(callId: string): Promise<CallDetails> {
     // expert_tool_table=true is CRITICAL — without it the server returns 500
-    return this.fetchSingle<CallDetails>(`/technical-calls/${callId}`, {
+    return this.fetchSingle<CallDetails>(`/technical-calls/${encodeURIComponent(callId)}`, {
       expert_tool_table: true,
     });
   }
@@ -252,6 +252,6 @@ export class RumbleClient implements IRumbleClient {
 
   async getAssetList(listId: string): Promise<AssetList> {
     // Asset lists use /api/assets-list/{id} endpoint (singular)
-    return this.fetchSingle<AssetList>(`/assets-list/${listId}`);
+    return this.fetchSingle<AssetList>(`/assets-list/${encodeURIComponent(listId)}`);
   }
 }
