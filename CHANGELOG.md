@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/AndrewHossam/rumble-mcp/compare/v2.1.1...v2.2.0) (2026-04-28)
+
+
+### Features
+
+* **api:** client robustness — single-flight refresh, retry handling, response validation ([#24](https://github.com/AndrewHossam/rumble-mcp/issues/24)) ([de9ec6b](https://github.com/AndrewHossam/rumble-mcp/commit/de9ec6b9bbd2df03416373687b79b8d88d903686))
+
 ## [2.1.1](https://github.com/AndrewHossam/rumble-mcp/compare/v2.1.0...v2.1.1) (2026-04-19)
 
 
