@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RumbleClient, NotFoundError } from '../api/client.js';
 
 // Mock global fetch
@@ -33,20 +33,28 @@ vi.mock('../api/token-refresh.js', () => {
   };
 });
 
-function makeOkResponse(body: unknown) {
+function makeOkResponse(body: unknown, headers: Record<string, string> = {}) {
   return {
     ok: true,
     status: 200,
     statusText: 'OK',
+    headers: { get: (k: string) => headers[k] ?? null },
     json: () => Promise.resolve(body),
+    text: () => Promise.resolve(''),
   };
 }
 
-function makeErrorResponse(status: number, statusText: string, body = '') {
+function makeErrorResponse(
+  status: number,
+  statusText: string,
+  body = '',
+  headers: Record<string, string> = {}
+) {
   return {
     ok: false,
     status,
     statusText,
+    headers: { get: (k: string) => headers[k] ?? null },
     json: () => Promise.resolve({}),
     text: () => Promise.resolve(body),
   };
@@ -57,18 +65,32 @@ describe('RumbleClient', () => {
 
   beforeEach(() => {
     mockFetch.mockReset();
-    client = new RumbleClient('test-token', 'EGY');
+    client = new RumbleClient({
+      token: 'test-token',
+      defaultMarket: 'EGY',
+      minIntervalMs: 0,
+      maxRetries: 0,
+    });
   });
 
   describe('Constructor', () => {
     it('creates a client with the default market EGY', () => {
-      const defaultClient = new RumbleClient('some-token');
+      const defaultClient = new RumbleClient({
+        token: 'some-token',
+        minIntervalMs: 0,
+        maxRetries: 0,
+      });
       // Verify it can be constructed without errors
       expect(defaultClient).toBeInstanceOf(RumbleClient);
     });
 
     it('creates a client with a custom market', () => {
-      const usaClient = new RumbleClient('some-token', 'USA');
+      const usaClient = new RumbleClient({
+        token: 'some-token',
+        defaultMarket: 'USA',
+        minIntervalMs: 0,
+        maxRetries: 0,
+      });
       expect(usaClient).toBeInstanceOf(RumbleClient);
     });
   });
@@ -263,7 +285,12 @@ describe('RumbleClient', () => {
   describe('401 retry logic', () => {
     it('retries with a refreshed token on a 401 response when a refresh token is available', async () => {
       // Each new RumbleClient instantiation sets mockManagerInstance
-      const localClient = new RumbleClient('test-token', 'EGY');
+      const localClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 0,
+      });
       if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
       const manager = mockManagerInstance;
 
@@ -287,7 +314,12 @@ describe('RumbleClient', () => {
     });
 
     it('preserves singularMarket=true on 401 retry so track-record endpoints keep market=EGY', async () => {
-      const localClient = new RumbleClient('test-token', 'EGY');
+      const localClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 0,
+      });
       if (!mockManagerInstance) throw new Error('mockManagerInstance was not set');
       const manager = mockManagerInstance;
 
@@ -383,6 +415,265 @@ describe('RumbleClient', () => {
       // Should unwrap response.object, not return the envelope
       expect(result).toEqual(mockDetail);
       expect((result as unknown as Record<string, unknown>).object).toBeUndefined();
+    });
+  });
+
+  // ─── Boundary validation ─────────────────────────────────────────────────────
+  describe('Boundary validation', () => {
+    it('throws on missing required id field on detail endpoint', async () => {
+      // CallDetailsSchema requires id: z.string() — omit it to trigger validation
+      mockFetch.mockResolvedValue(makeOkResponse({ object: { title: 'Missing required fields' } }));
+
+      await expect(client.getFundamentalCallDetails('x')).rejects.toThrow(
+        /Response validation failed/
+      );
+    });
+
+    it('throws when a required string field has the wrong type (id should be string, not number)', async () => {
+      // id must be a string — sending 123 should fail validation
+      mockFetch.mockResolvedValue(makeOkResponse({ object: { id: 123 } }));
+
+      await expect(client.getFundamentalCallDetails('x')).rejects.toThrow(
+        /Response validation failed/
+      );
+    });
+
+    it('accepts unknown extra fields (strips them — forward-compat with API additions)', async () => {
+      // Zod strips unknown keys by default, so extra fields should not cause failure
+      const mockDetail = {
+        id: 'x',
+        status: 'open',
+        new_unknown_field: 'hello',
+        another_future_field: 42,
+      };
+      mockFetch.mockResolvedValue(makeOkResponse({ object: mockDetail }));
+
+      // Should resolve without throwing
+      const result = await client.getFundamentalCallDetails('x');
+      expect(result.id).toBe('x');
+      expect(result.status).toBe('open');
+    });
+
+    it('throws when the envelope object field is missing on a detail endpoint', async () => {
+      // An empty response body has no `object` key — caught by the Malformed response check
+      mockFetch.mockResolvedValue(makeOkResponse({}));
+
+      await expect(client.getFundamentalCallDetails('x')).rejects.toThrow(/Malformed response/);
+    });
+  });
+
+  // ─── Polite client — pacing, 429, 5xx, User-Agent ───────────────────────────
+  describe('Polite client', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('429 with Retry-After waits and retries successfully', async () => {
+      vi.useFakeTimers();
+
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 1,
+      });
+
+      const response429 = {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { get: (k: string) => (k === 'Retry-After' ? '1' : null) },
+        text: () => Promise.resolve(''),
+        json: () => Promise.resolve({}),
+      };
+      const response200 = makeOkResponse({ objects: [] });
+
+      mockFetch.mockResolvedValueOnce(response429).mockResolvedValueOnce(response200);
+
+      const resultPromise = politeClient.getFundamentalCalls();
+      // Retry-After: 1 => sleep(1000 ms); advance past it
+      await vi.advanceTimersByTimeAsync(1100);
+      const result = await resultPromise;
+
+      expect(result).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('429 with no Retry-After falls back to exponential backoff and eventually succeeds', async () => {
+      vi.useFakeTimers();
+
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 1,
+      });
+
+      const response429noHeader = {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { get: (_k: string) => null },
+        text: () => Promise.resolve(''),
+        json: () => Promise.resolve({}),
+      };
+      const response200 = makeOkResponse({ objects: [] });
+
+      mockFetch.mockResolvedValueOnce(response429noHeader).mockResolvedValueOnce(response200);
+
+      const resultPromise = politeClient.getFundamentalCalls();
+      // backoffMs(0) = 500 * 2^0 + jitter [0-249] => up to 749ms; advance 1s to be safe
+      await vi.advanceTimersByTimeAsync(1000);
+      const result = await resultPromise;
+
+      expect(result).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('500 retries up to maxRetries then throws', async () => {
+      vi.useFakeTimers();
+
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 2,
+      });
+
+      const response500 = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal',
+        headers: { get: (_k: string) => null },
+        text: () => Promise.resolve(''),
+        json: () => Promise.resolve({}),
+      };
+
+      // 3 calls: initial + 2 retries
+      mockFetch.mockResolvedValue(response500);
+
+      // Wrap to prevent the unhandled rejection that leaks before the assertion picks it up
+      const resultPromise = politeClient.getFundamentalCalls().catch((e: unknown) => e);
+      // Advance through backoffs: attempt 0 => ~500ms, attempt 1 => ~1000ms
+      await vi.advanceTimersByTimeAsync(5000);
+
+      const err = await resultPromise;
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toMatch('API Error: 500');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('500 followed by 200 succeeds on retry', async () => {
+      vi.useFakeTimers();
+
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 1,
+      });
+
+      const response500 = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal',
+        headers: { get: (_k: string) => null },
+        text: () => Promise.resolve(''),
+        json: () => Promise.resolve({}),
+      };
+      const response200 = makeOkResponse({ objects: [{ id: 'recovered' }] });
+
+      mockFetch.mockResolvedValueOnce(response500).mockResolvedValueOnce(response200);
+
+      const resultPromise = politeClient.getFundamentalCalls();
+      await vi.advanceTimersByTimeAsync(1000);
+      const result = await resultPromise;
+
+      expect(result).toEqual([{ id: 'recovered' }]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('sends a User-Agent header matching the expected pattern', async () => {
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 0,
+        maxRetries: 0,
+        version: '2.1.1',
+      });
+
+      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+
+      await politeClient.getFundamentalCalls();
+
+      const calledHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(calledHeaders['User-Agent']).toMatch(/^rumble-mcp\/[^ ]+ \(\+https/);
+      expect(calledHeaders['User-Agent']).toContain('rumble-mcp/2.1.1');
+    });
+
+    it('pacing: second back-to-back call waits for minIntervalMs', async () => {
+      vi.useFakeTimers();
+
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        defaultMarket: 'EGY',
+        minIntervalMs: 100,
+        maxRetries: 0,
+      });
+
+      const callTimes: number[] = [];
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return Promise.resolve(makeOkResponse({ objects: [] }));
+      });
+
+      // First call
+      const firstPromise = politeClient.getFundamentalCalls();
+      await vi.advanceTimersByTimeAsync(0);
+      await firstPromise;
+
+      // Second call immediately after — should be delayed by minIntervalMs
+      const secondPromise = politeClient.getFundamentalCalls();
+      await vi.advanceTimersByTimeAsync(200);
+      await secondPromise;
+
+      // The second call should have been delayed so that it fired >= 100ms after first
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(100);
+    });
+
+    it('serializes concurrent callers so the pacing gate cannot be bypassed', async () => {
+      vi.useFakeTimers();
+
+      // Reproduces the concurrency bug CodeRabbit flagged: with the un-serialized
+      // pacing gate, two concurrent callers would both read the same stale
+      // `lastRequestAt`, both sleep, and both fire fetch() at the same time.
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        minIntervalMs: 100,
+        maxRetries: 0,
+      });
+      const callTimes: number[] = [];
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return Promise.resolve(makeOkResponse({ objects: [] }));
+      });
+
+      // Fire three calls in parallel from the same client instance.
+      const all = Promise.all([
+        politeClient.getFundamentalCalls(),
+        politeClient.getFundamentalCalls(),
+        politeClient.getFundamentalCalls(),
+      ]);
+      // Advance enough fake time for all three calls to settle (3 × ~minIntervalMs + jitter).
+      await vi.advanceTimersByTimeAsync(1000);
+      await all;
+
+      expect(callTimes).toHaveLength(3);
+      // Each subsequent fetch must be at least minIntervalMs after the previous one.
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(100);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(100);
+
+      vi.useRealTimers();
     });
   });
 });

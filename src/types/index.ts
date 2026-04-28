@@ -180,54 +180,76 @@ export interface ContentfulDocument {
 // Union type for either format
 export type RichTextContent = ContentfulDocument | RumbleRichTextDocument;
 
+// ─── Call Detail Schemas (for /api/fundamental-calls/:id and /api/technical-calls/:id) ─
+
+/**
+ * Schema for individual update items within a call detail response.
+ * content / the_story are kept as z.unknown() because they are recursive
+ * rich-text documents — their TS types are preserved via the intersection below.
+ */
+export const UpdateItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  datetime: z.string(),
+  action: z.string().optional(),
+  target_price: z.number().nullable().optional(),
+  take_profit_price: z.number().nullable().optional(),
+  stop_loss: z.number().nullable().optional(),
+  sell_percentage: z.number().nullable().optional(),
+  sell_price: z.number().nullable().optional(),
+  first_published_at: z.string().optional(),
+  last_published_at: z.string().optional(),
+  parent_id: z.string().optional(),
+  content: z.unknown().optional(),
+  the_story: z.unknown().nullable().optional(),
+});
+
+export const CallDetailsSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  status: z.string().optional(),
+  recommended_action: z.string().optional(),
+  action: z.string().optional(),
+  published_datetime: z.string().optional(),
+  updated_datetime: z.string().optional(),
+  start_price: z.number().optional(),
+  target_price: z.number().nullable().optional(),
+  buy_range_start: z.number().nullable().optional(),
+  buy_range_end: z.number().nullable().optional(),
+  take_profit_price: z.number().nullable().optional(),
+  close_price: z.number().nullable().optional(),
+  close_datetime: z.string().nullable().optional(),
+  close_index_price: z.number().nullable().optional(),
+  start_index_price: z.number().optional(),
+  index: z.string().optional(),
+  read_time: z.number().nullable().optional(),
+  asset: AssetInfoSchema.optional(),
+  price: z.number().optional(),
+  index_price: z.number().optional(),
+  the_story: z.unknown().nullable().optional(),
+  updates: z.array(UpdateItemSchema).optional(),
+  experts: z.array(ExpertInfoSchema).optional(),
+});
+
 // ─── Call Detail Types (from /api/fundamental-calls/:id?expert_tool_table=true) ──
 
-export interface UpdateItem {
-  id?: string;
-  title: string;
-  datetime: string; // ISO datetime
-  action?: string; // "buy" | "sell" etc
-  target_price?: number | null;
-  take_profit_price?: number | null;
-  stop_loss?: number | null;
-  sell_percentage?: number | null;
-  sell_price?: number | null;
-  first_published_at?: string;
-  last_published_at?: string;
-  parent_id?: string;
-  content?: RumbleRichTextDocument; // BlockNote format
-  the_story?: ContentfulDocument | null; // Contentful format (legacy)
-}
+/**
+ * Intersection preserves the recursive RumbleRichTextDocument / ContentfulDocument
+ * TS types for downstream consumers while Zod validates the surrounding shape.
+ */
+export type UpdateItem = Omit<z.infer<typeof UpdateItemSchema>, 'content' | 'the_story'> & {
+  content?: RumbleRichTextDocument;
+  the_story?: ContentfulDocument | null;
+};
 
-export interface CallDetails {
-  id: string;
-  title?: string; // e.g. "Buy OFH", "Hold QNBE"
-  status?: string; // "open" | "closed"
-  // Fundamental: recommended_action; Technical: action
-  recommended_action?: string;
-  action?: string;
-  published_datetime?: string;
-  updated_datetime?: string;
-  start_price?: number;
-  target_price?: number | null;
-  buy_range_start?: number | null; // technical only
-  buy_range_end?: number | null; // technical only
-  take_profit_price?: number | null; // technical only
-  close_price?: number | null;
-  close_datetime?: string | null;
-  close_index_price?: number | null;
-  start_index_price?: number;
-  index?: string;
-  read_time?: number | null; // fundamental only
-  asset?: AssetInfo;
-  // price = current market price (live feed)
-  price?: number;
-  index_price?: number;
-  // Rich content
+/**
+ * Intersection overrides the z.unknown() rich-text fields with their proper recursive TS types.
+ * The `updates` array is also overridden so elements satisfy UpdateItem (not the raw schema type).
+ */
+export type CallDetails = Omit<z.infer<typeof CallDetailsSchema>, 'the_story' | 'updates'> & {
   the_story?: ContentfulDocument | null;
   updates?: UpdateItem[];
-  experts?: ExpertInfo[];
-}
+};
 
 // ─── Formatted Output Types (what tool handlers return to the AI) ─────────────
 
