@@ -31,13 +31,12 @@ if (!FIREBASE_TOKEN) {
 }
 
 // Initialize Rumble API client
-const client = new RumbleClient(
-  FIREBASE_TOKEN,
-  DEFAULT_MARKET,
-  undefined,
-  undefined,
-  REFRESH_TOKEN
-);
+const client = new RumbleClient({
+  token: FIREBASE_TOKEN,
+  refreshToken: REFRESH_TOKEN,
+  defaultMarket: DEFAULT_MARKET,
+  version: pkg.version,
+});
 
 // Create MCP server
 const server = new Server(

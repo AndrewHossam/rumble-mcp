@@ -107,6 +107,8 @@ export class TokenManager {
   private refreshToken: string | null;
   private apiKey: string;
   private onTokenRefresh?: (newToken: string) => void;
+  // Coalesces concurrent refresh() calls onto a single in-flight network request.
+  private inFlightRefresh: Promise<string> | null = null;
 
   constructor(
     idToken: string,
@@ -138,24 +140,26 @@ export class TokenManager {
   }
 
   /**
-   * Force refresh the token
+   * Force refresh the token. Concurrent calls are coalesced into a single
+   * network request — all callers receive the same promise and the same token.
    */
   async refresh(): Promise<string> {
-    if (!this.refreshToken) {
-      throw new Error('No refresh token available');
-    }
+    if (this.inFlightRefresh) return this.inFlightRefresh;
+    const refreshToken = this.refreshToken;
+    if (!refreshToken) throw new Error('No refresh token available');
 
-    const result = await refreshFirebaseToken(this.refreshToken, this.apiKey);
+    this.inFlightRefresh = refreshFirebaseToken(refreshToken, this.apiKey)
+      .then(result => {
+        this.idToken = result.idToken;
+        this.refreshToken = result.refreshToken;
+        if (this.onTokenRefresh) this.onTokenRefresh(this.idToken);
+        return this.idToken;
+      })
+      .finally(() => {
+        this.inFlightRefresh = null;
+      });
 
-    this.idToken = result.idToken;
-    this.refreshToken = result.refreshToken; // Update in case it was rotated
-
-    // Notify callback if set
-    if (this.onTokenRefresh) {
-      this.onTokenRefresh(this.idToken);
-    }
-
-    return this.idToken;
+    return this.inFlightRefresh;
   }
 
   /**

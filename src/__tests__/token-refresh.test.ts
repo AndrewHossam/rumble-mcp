@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isTokenExpired, TokenManager, refreshFirebaseToken } from '../api/token-refresh.js';
 
+// Helper to create test JWTs with a given exp timestamp (also used by Single-flight block)
+function makeTokenResponse(idToken: string, newRefreshToken: string) {
+  return {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        id_token: idToken,
+        refresh_token: newRefreshToken,
+        expires_in: '3600',
+      }),
+  };
+}
+
 // Helper to create test JWTs with a given exp timestamp
 function createTestJWT(exp: number): string {
   const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
@@ -42,6 +55,66 @@ describe('isTokenExpired', () => {
     const badPayload = '!!!not-valid-base64!!!';
     const token = `${header}.${badPayload}.signature`;
     expect(isTokenExpired(token)).toBe(true);
+  });
+});
+
+// ─── Single-flight refresh ─────────────────────────────────────────────────────
+
+describe('Single-flight refresh', () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('concurrent refresh() calls coalesce to one network request', async () => {
+    mockFetch.mockResolvedValue(makeTokenResponse('new-token', 'new-refresh'));
+
+    const manager = new TokenManager('old-token', 'refresh-token-value');
+    const results = await Promise.all([manager.refresh(), manager.refresh(), manager.refresh()]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(results).toEqual(['new-token', 'new-token', 'new-token']);
+  });
+
+  it('failed refresh clears the in-flight slot so the next call retries', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        statusText: 'fail',
+        json: () => Promise.resolve({ error: { message: 'boom' } }),
+      })
+      .mockResolvedValueOnce(makeTokenResponse('recovered-token', 'new-refresh'));
+
+    const manager = new TokenManager('old-token', 'refresh-token-value');
+
+    await expect(manager.refresh()).rejects.toThrow('Token refresh failed');
+    const token = await manager.refresh();
+
+    expect(token).toBe('recovered-token');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('concurrent getValidToken() calls with expired JWT coalesce to one network request', async () => {
+    mockFetch.mockResolvedValue(makeTokenResponse('refreshed-token', 'new-refresh'));
+
+    const expiredExp = Math.floor(Date.now() / 1000) - 7200; // 2 hours ago
+    const expiredJWT = createTestJWT(expiredExp);
+    const manager = new TokenManager(expiredJWT, 'refresh-token-value');
+
+    const results = await Promise.all([
+      manager.getValidToken(),
+      manager.getValidToken(),
+      manager.getValidToken(),
+    ]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(results).toEqual(['refreshed-token', 'refreshed-token', 'refreshed-token']);
   });
 });
 
