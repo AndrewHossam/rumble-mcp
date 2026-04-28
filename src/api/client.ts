@@ -148,6 +148,7 @@ export class RumbleClient implements IRumbleClient {
   private minIntervalMs: number;
   private maxRetries: number;
   private lastRequestAt: number = 0;
+  private pacingQueue: Promise<void> = Promise.resolve();
 
   constructor(options: RumbleClientOptions) {
     const {
@@ -181,6 +182,33 @@ export class RumbleClient implements IRumbleClient {
           : 3;
   }
 
+  /**
+   * Serialize the pacing gate so concurrent callers don't all read the same
+   * stale `lastRequestAt`, sleep in parallel, and burst the network. Each
+   * caller links onto the previous one's promise, then claims the slot
+   * (sleep if needed, update lastRequestAt) before releasing.
+   */
+  private async waitForRequestSlot(): Promise<void> {
+    const previous = this.pacingQueue;
+    let release!: () => void;
+    this.pacingQueue = new Promise<void>(resolve => {
+      release = resolve;
+    });
+
+    await previous;
+    try {
+      if (this.lastRequestAt !== 0) {
+        const elapsed = Date.now() - this.lastRequestAt;
+        if (elapsed < this.minIntervalMs) {
+          await sleep(this.minIntervalMs - elapsed + Math.floor(Math.random() * 100));
+        }
+      }
+      this.lastRequestAt = Date.now();
+    } finally {
+      release();
+    }
+  }
+
   private async fetch<T>(
     endpoint: string,
     params?: Record<string, string | number | boolean>,
@@ -188,14 +216,7 @@ export class RumbleClient implements IRumbleClient {
     singularMarket: boolean = false,
     attempt: number = 0
   ): Promise<T> {
-    // Pacing: enforce minimum interval between requests (skip on very first call)
-    if (this.lastRequestAt !== 0) {
-      const elapsed = Date.now() - this.lastRequestAt;
-      if (elapsed < this.minIntervalMs) {
-        await sleep(this.minIntervalMs - elapsed + Math.floor(Math.random() * 100));
-      }
-    }
-    this.lastRequestAt = Date.now();
+    await this.waitForRequestSlot();
 
     const url = new URL(`${BASE_URL}${endpoint}`);
 

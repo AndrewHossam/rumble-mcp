@@ -621,24 +621,59 @@ describe('RumbleClient', () => {
         maxRetries: 0,
       });
 
-      mockFetch.mockResolvedValue(makeOkResponse({ objects: [] }));
+      const callTimes: number[] = [];
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return Promise.resolve(makeOkResponse({ objects: [] }));
+      });
 
       // First call
       const firstPromise = politeClient.getFundamentalCalls();
       await vi.advanceTimersByTimeAsync(0);
       await firstPromise;
 
-      const firstCallAt = Date.now();
-
       // Second call immediately after — should be delayed by minIntervalMs
       const secondPromise = politeClient.getFundamentalCalls();
       await vi.advanceTimersByTimeAsync(200);
       await secondPromise;
 
-      const secondCallAt = Date.now();
-
       // The second call should have been delayed so that it fired >= 100ms after first
-      expect(secondCallAt - firstCallAt).toBeGreaterThanOrEqual(100);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(100);
+    });
+
+    it('serializes concurrent callers so the pacing gate cannot be bypassed', async () => {
+      vi.useFakeTimers();
+
+      // Reproduces the concurrency bug CodeRabbit flagged: with the un-serialized
+      // pacing gate, two concurrent callers would both read the same stale
+      // `lastRequestAt`, both sleep, and both fire fetch() at the same time.
+      const politeClient = new RumbleClient({
+        token: 'test-token',
+        minIntervalMs: 100,
+        maxRetries: 0,
+      });
+      const callTimes: number[] = [];
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return Promise.resolve(makeOkResponse({ objects: [] }));
+      });
+
+      // Fire three calls in parallel from the same client instance.
+      const all = Promise.all([
+        politeClient.getFundamentalCalls(),
+        politeClient.getFundamentalCalls(),
+        politeClient.getFundamentalCalls(),
+      ]);
+      // Advance enough fake time for all three calls to settle (3 × ~minIntervalMs + jitter).
+      await vi.advanceTimersByTimeAsync(1000);
+      await all;
+
+      expect(callTimes).toHaveLength(3);
+      // Each subsequent fetch must be at least minIntervalMs after the previous one.
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(100);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(100);
+
+      vi.useRealTimers();
     });
   });
 });
