@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/AndrewHossam/rumble-mcp/compare/v2.2.0...v2.2.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* tolerate live response shape drift + security/publishing maintenance ([#25](https://github.com/AndrewHossam/rumble-mcp/issues/25)) ([f757217](https://github.com/AndrewHossam/rumble-mcp/commit/f757217641d3311107ecbd6a851aa815e7fc549e))
+
 # [2.2.0](https://github.com/AndrewHossam/rumble-mcp/compare/v2.1.1...v2.2.0) (2026-04-28)
 
 
