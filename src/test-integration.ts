@@ -39,7 +39,8 @@ async function runTest() {
           try {
             parsed = JSON.parse(line);
           } catch {
-            // not a JSON line (MCP servers log to stderr but belt-and-suspenders)
+            // MCP servers log to stderr; any non-JSON stdout line is worth surfacing
+            console.error(`[test-integration] non-JSON stdout line: ${line.slice(0, 120)}`);
             continue;
           }
           if (
@@ -48,7 +49,7 @@ async function runTest() {
             'id' in parsed &&
             (parsed as { id: unknown }).id === id
           ) {
-            server.stdout.removeListener('data', onData);
+            cleanup();
             const response = parsed as {
               id: number;
               error?: unknown;
@@ -70,11 +71,23 @@ async function runTest() {
         }
       };
 
-      server.stdout.on('data', onData);
-      // Fail fast if the server dies before answering instead of exiting 0 silently
-      server.once('exit', code => {
+      const cleanup = () => {
+        clearTimeout(deadline);
+        server.stdout.removeListener('data', onData);
+        server.removeListener('exit', onExit);
+      };
+      const onExit = (code: number) => {
+        cleanup();
         reject(new Error(`Server exited before responding (exit code ${code})`));
-      });
+      };
+      // Deadline so a hung server fails the test instead of hanging it forever
+      const deadline = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for a response'));
+      }, 60_000);
+
+      server.stdout.on('data', onData);
+      server.once('exit', onExit);
       server.stdin.write(request);
     });
   }
@@ -98,6 +111,8 @@ async function runTest() {
           try {
             parsed = JSON.parse(line);
           } catch {
+            // MCP servers log to stderr; any non-JSON stdout line is worth surfacing
+            console.error(`[test-integration] non-JSON stdout line: ${line.slice(0, 120)}`);
             continue;
           }
           if (
@@ -106,7 +121,7 @@ async function runTest() {
             'id' in parsed &&
             (parsed as { id: unknown }).id === id
           ) {
-            server.stdout.removeListener('data', onData);
+            cleanup();
             const response = parsed as {
               id: number;
               error?: unknown;
@@ -128,11 +143,23 @@ async function runTest() {
         }
       };
 
-      server.stdout.on('data', onData);
-      // Fail fast if the server dies before answering instead of exiting 0 silently
-      server.once('exit', code => {
+      const cleanup = () => {
+        clearTimeout(deadline);
+        server.stdout.removeListener('data', onData);
+        server.removeListener('exit', onExit);
+      };
+      const onExit = (code: number) => {
+        cleanup();
         reject(new Error(`Server exited before responding (exit code ${code})`));
-      });
+      };
+      // Deadline so a hung server fails the test instead of hanging it forever
+      const deadline = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for a response'));
+      }, 60_000);
+
+      server.stdout.on('data', onData);
+      server.once('exit', onExit);
       server.stdin.write(request);
     });
   }
