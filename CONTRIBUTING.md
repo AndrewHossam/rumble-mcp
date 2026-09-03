@@ -37,7 +37,7 @@ npm run format:check  # Check formatting without changes
 
 ### Vitest (Testing)
 
-Unit testing with 80% coverage thresholds configured in `vitest.config.ts`.
+Unit testing with 70% line/function/statement and 60% branch coverage thresholds configured in `vitest.config.ts`.
 
 ```bash
 npm run test           # Run tests once
@@ -54,12 +54,14 @@ Type checking without emitting files.
 npm run typecheck
 ```
 
+**Version policy:** the project stays on TypeScript 5.x for now. TypeScript 7 (the native compiler) is not usable here until typescript-eslint supports it — it currently crashes ESLint at plugin load and its peer range caps below 6.1 (see typescript-eslint issue #10940). Do not merge Renovate's `typescript` major PR until that lands. When it does, the migration is just the version bump: the build was verified byte-identical under TS 7 in September 2026.
+
 ### Full Validation
 
 Run all checks in sequence:
 
 ```bash
-npm run validate  # lint → format:check → typecheck → test
+npm run validate  # lint → format:check → typecheck → test → audit:ci (production deps)
 ```
 
 ---

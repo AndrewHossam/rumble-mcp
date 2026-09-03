@@ -239,7 +239,7 @@ npm test
 
 ### Developer Workflow & Safety
 This project includes automated safety checks to prevent breaking changes:
-*   **Pre-commit Hooks**: Automatically builds the project before every commit to catch syntax and type errors.
+*   **Pre-commit Hooks**: Automatically lint and format staged files on every commit; a pre-push hook runs the full validation suite (lint, format, typecheck, tests, prod audit).
 *   **CI/CD**: GitHub Actions automatically verifies builds and types on every push and pull request.
 *   **Publish Safety**: The project is locked to automatically run a fresh build before `npm publish` to ensure users always get the latest code.
 
