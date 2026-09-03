@@ -39,7 +39,8 @@ async function runTest() {
           try {
             parsed = JSON.parse(line);
           } catch {
-            // not a JSON line (MCP servers log to stderr but belt-and-suspenders)
+            // MCP servers log to stderr; any non-JSON stdout line is worth surfacing
+            console.error(`[test-integration] non-JSON stdout line: ${line.slice(0, 120)}`);
             continue;
           }
           if (
@@ -48,10 +49,19 @@ async function runTest() {
             'id' in parsed &&
             (parsed as { id: unknown }).id === id
           ) {
-            server.stdout.removeListener('data', onData);
-            const response = parsed as { id: number; error?: unknown; result?: unknown };
+            cleanup();
+            const response = parsed as {
+              id: number;
+              error?: unknown;
+              result?: { isError?: boolean; content?: Array<{ text?: string }> };
+            };
             if (response.error) {
               reject(new Error(`Tool ${name} failed: ${JSON.stringify(response.error)}`));
+            } else if (response.result?.isError) {
+              // MCP tool errors arrive as result.isError, not as protocol errors
+              reject(
+                new Error(`Tool ${name} returned an error: ${response.result.content?.[0]?.text}`)
+              );
             } else {
               console.log(`✅ Tool ${name} passed!`);
               resolve(response.result);
@@ -61,15 +71,102 @@ async function runTest() {
         }
       };
 
+      const cleanup = () => {
+        clearTimeout(deadline);
+        server.stdout.removeListener('data', onData);
+        server.removeListener('exit', onExit);
+      };
+      const onExit = (code: number) => {
+        cleanup();
+        reject(new Error(`Server exited before responding (exit code ${code})`));
+      };
+      // Deadline so a hung server fails the test instead of hanging it forever
+      const deadline = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for a response'));
+      }, 60_000);
+
       server.stdout.on('data', onData);
+      server.once('exit', onExit);
+      server.stdin.write(request);
+    });
+  }
+
+  async function listTools() {
+    return new Promise((resolve, reject) => {
+      const id = requestId++;
+      const request = JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', id }) + '\n';
+
+      console.log('\nTesting tool listing...');
+
+      let responseData = '';
+
+      const onData = (data: Buffer) => {
+        responseData += data.toString();
+        const lines = responseData.split('\n');
+        responseData = lines.pop() ?? ''; // keep incomplete trailing line
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(line);
+          } catch {
+            // MCP servers log to stderr; any non-JSON stdout line is worth surfacing
+            console.error(`[test-integration] non-JSON stdout line: ${line.slice(0, 120)}`);
+            continue;
+          }
+          if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            'id' in parsed &&
+            (parsed as { id: unknown }).id === id
+          ) {
+            cleanup();
+            const response = parsed as {
+              id: number;
+              error?: unknown;
+              result?: { tools?: unknown[] };
+            };
+            if (response.error) {
+              reject(new Error(`Tool listing failed: ${JSON.stringify(response.error)}`));
+            } else {
+              const tools = response.result?.tools;
+              if (Array.isArray(tools) && tools.length > 0) {
+                console.log(`✅ Tool listing passed! (${tools.length} tools available)`);
+                resolve(tools);
+              } else {
+                reject(new Error('Tool listing returned no tools'));
+              }
+            }
+            return;
+          }
+        }
+      };
+
+      const cleanup = () => {
+        clearTimeout(deadline);
+        server.stdout.removeListener('data', onData);
+        server.removeListener('exit', onExit);
+      };
+      const onExit = (code: number) => {
+        cleanup();
+        reject(new Error(`Server exited before responding (exit code ${code})`));
+      };
+      // Deadline so a hung server fails the test instead of hanging it forever
+      const deadline = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for a response'));
+      }, 60_000);
+
+      server.stdout.on('data', onData);
+      server.once('exit', onExit);
       server.stdin.write(request);
     });
   }
 
   try {
     // 1. List tools
-    console.log('Testing tool listing...');
-    // (Tool listing test omitted for brevity in summary but would be here)
+    await listTools();
 
     // 2. Test core tools
     await callTool('get_fundamental_calls', { limit: 1 });

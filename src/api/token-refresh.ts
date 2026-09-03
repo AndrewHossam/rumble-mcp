@@ -6,9 +6,6 @@
  * (until logout or password change).
  */
 
-// Firebase project ID (extracted from Rumble's token issuer)
-const _FIREBASE_PROJECT_ID = 'therumble-aec18';
-
 // Firebase Web API Key (this is a public key, safe to include)
 // Found from therumble.app network traffic (identitytoolkit call).
 // Can be overridden via the FIREBASE_API_KEY environment variable.
@@ -51,6 +48,7 @@ export async function refreshFirebaseToken(
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+    signal: AbortSignal.timeout(30_000),
   });
 
   const data = await response.json();

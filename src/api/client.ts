@@ -1,4 +1,4 @@
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import { z } from 'zod';
 import type {
   ListParams,
@@ -51,6 +51,9 @@ const BASE_URL = 'https://therumble.app/api';
 // Hard cap on Retry-After to prevent malicious or buggy servers from stalling the process
 const MAX_RETRY_AFTER_MS = 60_000;
 
+// Timeout so a hung API request can never block the MCP server indefinitely
+const REQUEST_TIMEOUT_MS = 30_000;
+
 // Generate a secure random ID similar to what Rumble uses
 function generateId(length: number = 21): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -90,7 +93,13 @@ function backoffMs(attempt: number): number {
  * Validates a response payload against a Zod schema with structured error logging.
  * Uses safeParse to avoid throwing ZodErrors directly — throws a human-readable Error instead.
  */
-function validateResponse<T>(endpoint: string, schema: ZodType<T>, payload: unknown): T {
+// Input generic is `unknown` so schemas that normalize their input
+// (z.preprocess/transform) are accepted, not just Input===Output schemas
+function validateResponse<T>(
+  endpoint: string,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+  payload: unknown
+): T {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
     const issues = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
@@ -245,6 +254,7 @@ export class RumbleClient implements IRumbleClient {
         'x-rumble-session-id': this.sessionId,
         'x-rumble-request-id': generateId(),
       },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     // Handle 401 by trying to refresh token and retry once
@@ -255,7 +265,9 @@ export class RumbleClient implements IRumbleClient {
         // Retry the request with new token (but don't retry again); pass attempt unchanged
         return this.fetch<T>(endpoint, params, false, singularMarket, attempt);
       } catch (refreshError) {
-        throw new Error(`API Error: 401 Unauthorized (token refresh failed: ${refreshError})`);
+        throw new Error(`API Error: 401 Unauthorized (token refresh failed: ${refreshError})`, {
+          cause: refreshError,
+        });
       }
     }
 
@@ -308,7 +320,7 @@ export class RumbleClient implements IRumbleClient {
    */
   private async fetchSingle<T>(
     endpoint: string,
-    schema: ZodType<T>,
+    schema: ZodType<T, ZodTypeDef, unknown>,
     params?: Record<string, string | number | boolean>,
     options: { singularMarket?: boolean } = {}
   ): Promise<T> {
