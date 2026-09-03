@@ -676,4 +676,87 @@ describe('RumbleClient', () => {
       vi.useRealTimers();
     });
   });
+
+  describe('API shape tolerance', () => {
+    it('normalizes expert market char maps ({"0":"E","1":"G","2":"Y"}) back to strings', async () => {
+      // The live API intermittently serializes market codes as char maps —
+      // regression test for the schema validation failure this caused in 2.2.0
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse({
+          objects: [
+            {
+              id: 'call1',
+              status: 'open',
+              experts: [
+                { id: 'e1', name: 'Test Analyst', markets: [{ 0: 'E', 1: 'G', 2: 'Y' }, 'UAE'] },
+              ],
+            },
+          ],
+        })
+      );
+
+      const result = await client.getFundamentalCalls();
+
+      expect(result[0].experts?.[0].markets).toEqual(['EGY', 'UAE']);
+    });
+
+    it('fails loudly on unrecognized market shapes instead of fabricating strings', async () => {
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse({
+          objects: [
+            { id: 'call1', experts: [{ id: 'e1', name: 'Test Analyst', markets: [{ 0: 5 }] }] },
+          ],
+        })
+      );
+
+      await expect(client.getFundamentalCalls()).rejects.toThrow('Response validation failed');
+    });
+
+    it('accepts numeric watch_time in latest releases (API returns both shapes)', async () => {
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse({
+          objects: [
+            { title: 'String watch time', watch_time: '04:59' },
+            { title: 'Numeric watch time', watch_time: 299 },
+          ],
+        })
+      );
+
+      const result = await client.getLatestReleases();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].watch_time).toBe('04:59');
+      expect(result[1].watch_time).toBe(299);
+    });
+  });
+
+  describe('Request hardening', () => {
+    it('attaches a timeout signal so a hung request cannot block the server', async () => {
+      mockFetch.mockResolvedValueOnce(makeOkResponse({ objects: [] }));
+
+      await client.getFundamentalCalls();
+
+      const init = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      expect(init.signal?.aborted).toBe(false);
+    });
+
+    it('preserves the refresh failure as cause when a 401 token refresh fails', async () => {
+      if (!mockManagerInstance) throw new Error('TokenManager was not constructed');
+      const manager = mockManagerInstance;
+      manager.hasRefreshToken.mockReturnValue(true);
+      manager.refresh.mockRejectedValueOnce(new Error('Token refresh failed: USER_TOKEN_EXPIRED'));
+      mockFetch.mockResolvedValueOnce(makeErrorResponse(401, 'Unauthorized'));
+
+      const error = await client.getFundamentalCalls().then(
+        () => null,
+        (e: Error) => e
+      );
+
+      expect(error?.message).toContain('API Error: 401 Unauthorized');
+      expect((error as Error & { cause?: Error }).cause?.message).toBe(
+        'Token refresh failed: USER_TOKEN_EXPIRED'
+      );
+    });
+  });
 });

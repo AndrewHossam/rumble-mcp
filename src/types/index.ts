@@ -24,6 +24,39 @@ export const AssetInfoSchema = z.object({
     .optional(),
 });
 
+/**
+ * The API serializes expert market codes inconsistently: sometimes plain
+ * strings ("EGY"), sometimes the same string exploded into a char map
+ * ({"0":"E","1":"G","2":"Y"}). Only index-to-single-char maps are recognized
+ * and reassembled; any other shape passes through unchanged and fails
+ * validation loudly instead of fabricating a string.
+ */
+const MarketCodeSchema = z.preprocess(val => {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    const entries = Object.entries(val as Record<string, unknown>);
+    const isCharMap =
+      entries.length > 0 &&
+      entries.every(([key, char]) => {
+        const index = Number(key);
+        return (
+          Number.isInteger(index) &&
+          index >= 0 &&
+          String(index) === key &&
+          typeof char === 'string' &&
+          char.length === 1
+        );
+      });
+    if (isCharMap) {
+      return entries
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([, char]) => char)
+        .join('');
+    }
+  }
+  return val;
+}, z.string());
+
 // Expert / Analyst object
 export const ExpertInfoSchema = z.object({
   id: z.string(),
@@ -31,7 +64,7 @@ export const ExpertInfoSchema = z.object({
   nickname: z.string().optional(),
   type: z.string().optional(), // e.g. "FUNDAMENTAL_ANALYST", "TECHNICAL_ANALYST"
   image: z.string().optional(),
-  markets: z.array(z.string()).optional(),
+  markets: z.array(MarketCodeSchema).optional(),
   bio: z.string().optional(),
   title: z.string().optional(),
 });
@@ -191,7 +224,8 @@ export const UpdateItemSchema = z.object({
   id: z.string().optional(),
   title: z.string(),
   datetime: z.string(),
-  action: z.string().optional(),
+  // The API returns null for updates without an explicit action
+  action: z.string().nullable().optional(),
   target_price: z.number().nullable().optional(),
   take_profit_price: z.number().nullable().optional(),
   stop_loss: z.number().nullable().optional(),
@@ -273,7 +307,8 @@ export interface FormattedUpdate {
   id?: string;
   title: string;
   datetime: string;
-  action?: string;
+  // null when the API has no explicit action for an update
+  action?: string | null;
   target_price?: number | null;
   stop_loss?: number | null;
   summary: string;
@@ -307,7 +342,8 @@ export const LatestReleaseSchema = z.object({
   update_datetime: z.string().optional(),
   parent_type: z.string().optional(),
   read_time: z.string().nullable().optional(),
-  watch_time: z.string().nullable().optional(),
+  // The API returns watch_time as either a string or a number depending on the record
+  watch_time: z.union([z.string(), z.number()]).nullable().optional(),
   short_description: z.string().optional(),
   thumbnail_image: z.string().optional(),
   link_to: z.string().nullable().optional(),
